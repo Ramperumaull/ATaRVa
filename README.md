@@ -54,7 +54,7 @@ usage: atarva [-h] -f <FILE> -b <FILE> [<FILE> ...] -r <FILE> [--format <STR>] [
               [--snp-dist <INT>] [--snp-count <INT>] [--snp-qual <INT>] [--flank <INT>]
               [--snp-read <FLOAT>] [--phasing-read <FLOAT>] [-o <FILE>]
               [--karyotype KARYOTYPE [KARYOTYPE ...]] [-t <INT>] [--haplotag <STR>]
-              [--decompose] [-log] [-v]
+              [--decompose] [--amplicon] [-log] [-v]
 
 Required arguments:
   -f <FILE>, --fasta <FILE>
@@ -97,6 +97,7 @@ Optional arguments:
                         number of threads. [default: 1]
   --haplotag <STR>      use haplotagged information for phasing. eg: [HP]. [default: None]
   --decompose           write the motif-decomposed sequence to the vcf. [default: False]
+  --amplicon            genotype mode for targeted-sequenced samples. [default: False]
   -log, --debug_mode    write the debug messages to log file. [default: False]
   -v, --version         show program's version number and exit
 ```
@@ -271,6 +272,8 @@ The `INFO` field describes the general structure of the repeat region and includ
 | AN | Total number of alleles in called genotypes |
 | MOTIF | Motif of the repeat region |
 | END | End position of the repeat region |
+| ID  | Tag fetched form the extra column in BED file |
+**NOTE: The `ID` tag name depends on the optional column name in the BED file. If the BED file does not have a header, then the tag will be ID.**
 
 #### FORMAT fields
 The `FORMAT` fields and their values are provided in the last two columns of the VCF file, containing information about each genotype call. These columns include the following fields:  
@@ -305,6 +308,9 @@ Specify the haplotype tag to utilize phased information for genotyping. eg `HP`
 Performs motif-decomposition on ALT sequences.<br>
 **NOTE: Only applicable for motif length <= 10**
 
+### `--amplicon`
+genotyping mode for targeted sequencing data.
+
 ### `-v or --version`
 Prints the version info of ATaRVa.
 
@@ -326,9 +332,14 @@ With multiple bams:
 $ atarva -f ref.fa --bam input1.bam input2.bam -r regions.bed.gz --karyotype XY XX
 ```
 ### With haplotag
-To run ATaRVa on haplotagged alignment file, use the folowing command:
+To run ATaRVa on haplotagged alignment file, use the following command:
 ```bash
 $ atarva -f ref.fa --bam input.bam -r regions.bed.gz --haplotag HP
+```
+### With amplicon
+To run ATaRVa on targeted sequencing file, use the following command:
+```bash
+$ atarva -f ref.fa --bam input.bam -r regions.bed.gz --amplicon
 ```
 ### Stringent parameter usage
 To run ATaRVa with stringent parameters, use the following command:
@@ -358,7 +369,13 @@ $ docker run -i -t --rm -v /path_of_necessary_files/:/folder_name atarva:latest 
 In all the above examples, the output of ATaRVa is saved to input.vcf unless -o is specified.
 
 ## Changelog
-### v0.2.0 (current)
+### v0.3.0 (current)
+* Added `--amplicon` mode for targeted sequencing data
+* Improved Outlier cleaning in K-Means clustering
+* Implemented De-novo motif identification in motif-decomposition
+* Added optional tag `ID` in INFO field if BED input has additional column
+
+### v0.2.0
 * Added `--haplotag` argument to enable the use of haplotag information for genotyping.
 * Fixed bugs in SNP-based clustering.
 * Replaced the use of the mode function with a consensus-based approach for final allele derivation.
