@@ -248,6 +248,7 @@ def cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshold, ou
             # repeat loci covered by the read
             loci_coords = []; loci_keys = []
             left_flank_list = []; right_flank_list = []
+            amp_left_flank_list = []; amp_right_flank_list = []
 
             for row in tbx.fetch(read_chrom, read_start, read_end):
                 
@@ -309,15 +310,22 @@ def cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshold, ou
             if hp: hp_tag = read.get_tag(hp_code)
             else: hp_tag = None
 
-            if amplicon: hp = True
+            if amplicon:
+                hp = True
+                for each_flank in left_flank_list:
+                    needed_len = flank - each_flank
+                    amp_left_flank_list.append(needed_len if each_flank < flank else 0)
+                for each_flank in right_flank_list:
+                    needed_len = flank - each_flank
+                    amp_right_flank_list.append(needed_len if each_flank < flank else 0)
                 
             if read.has_tag('cs'):
                 del cigar_tuples
                 cs_tag = read.get_tag('cs')
-                parse_cstag(read_index, cs_tag, read_start, loci_keys, loci_coords, read_loci_variations, homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read_quality, cigar_one, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp)
+                parse_cstag(read_index, cs_tag, read_start, loci_keys, loci_coords, read_loci_variations, homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read_quality, cigar_one, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, amp_right_flank_list, amp_left_flank_list)
             else :
                 parse_cigar_tag(read_index, cigar_tuples, read_start, loci_keys, loci_coords, read_loci_variations,
-                                homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read, ref, read_quality, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp)
+                                homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read, ref, read_quality, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, amp_right_flank_list, amp_left_flank_list)
 
             for locus_key in read_loci_variations:
                 global_loci_variations[locus_key]['reads'].append(read_index)
@@ -471,6 +479,7 @@ def mini_cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshol
                 loci_coords = []; loci_keys = []
  
                 left_flank_list = []; right_flank_list = []
+                amp_left_flank_list = []; amp_right_flank_list = []
 
                 left_flank = min(flank, locus_start - read_start)
                 right_flank = min(flank, read_end - locus_end)
@@ -506,15 +515,22 @@ def mini_cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshol
                 if hp: hp_tag = read.get_tag(hp_code)
                 else: hp_tag = None
 
-                if amplicon: hp = True
+                if amplicon:
+                    hp = True
+                    for each_flank in left_flank_list:
+                        needed_len = flank - each_flank
+                        amp_left_flank_list.append(needed_len if each_flank < flank else 0)
+                    for each_flank in right_flank_list:
+                        needed_len = flank - each_flank
+                        amp_right_flank_list.append(needed_len if each_flank < flank else 0)
     
                 if read.has_tag('cs'):
                     del cigar_tuples
                     cs_tag = read.get_tag('cs')
-                    parse_cstag(read_index, cs_tag, read_start, loci_keys, loci_coords, read_loci_variations, homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read_quality, cigar_one, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp)
+                    parse_cstag(read_index, cs_tag, read_start, loci_keys, loci_coords, read_loci_variations, homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read_quality, cigar_one, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, amp_right_flank_list, amp_left_flank_list)
                 else :
                     parse_cigar_tag(read_index, cigar_tuples, read_start, loci_keys, loci_coords, read_loci_variations,
-                                homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read, ref, read_quality, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp)
+                                homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read, ref, read_quality, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, amp_right_flank_list, amp_left_flank_list)
     
                 for locus_key in read_loci_variations:
                     global_loci_variations[locus_key]['reads'].append(read_index)

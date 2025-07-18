@@ -20,7 +20,7 @@ def update_homopolymer_coords(ref_seq, locus_start, homopoly_positions):
             homopoly_positions[c] = (i-start+1)-l
 
 
-def match_jump(rpos, repeat_index, loci_coords, tracked, locus_qpos_range, qpos, match_len, loci_flank_qpos_range, flank_track, left_flank, right_flank):
+def match_jump(rpos, repeat_index, loci_coords, tracked, locus_qpos_range, qpos, match_len, loci_flank_qpos_range, flank_track, left_flank, right_flank, amp_right_flank_list, amp_left_flank_list, out_insertion_qpos_ranges_right, out_insertion_qpos_ranges_left, right_ins_rpos, left_ins_rpos, seq_len):
     """
     Return the number of repeat indices to jump when scanning through a match segment
     """
@@ -38,9 +38,14 @@ def match_jump(rpos, repeat_index, loci_coords, tracked, locus_qpos_range, qpos,
             if coord_start <= rpos:
                 
                 locus_qpos_range[r+repeat_index][0] = qpos - (rpos - coord_start)
+                if amp_left_flank_list:
+                    Record_left_out_ins(amp_left_flank_list, r, repeat_index, locus_qpos_range, out_insertion_qpos_ranges_left, left_ins_rpos, coord_start)
+
             if coord_end < rpos:
                 
                 locus_qpos_range[r+repeat_index][1] = qpos - (rpos - coord_end)
+                if amp_left_flank_list:
+                    Record_right_out_ins(amp_right_flank_list, r, repeat_index, locus_qpos_range, out_insertion_qpos_ranges_right, qpos, right_ins_rpos, coord_end, seq_len)
 
             tracked[r+repeat_index] = True 
 
@@ -57,6 +62,8 @@ def match_jump(rpos, repeat_index, loci_coords, tracked, locus_qpos_range, qpos,
         elif coord_end <= rpos:
             
             locus_qpos_range[r+repeat_index][1] = qpos - (rpos -coord_end)
+            if amp_left_flank_list:
+                Record_right_out_ins(amp_right_flank_list, r, repeat_index, locus_qpos_range, out_insertion_qpos_ranges_right, qpos, right_ins_rpos, coord_end, seq_len)
 
         # for storing repeat qpos ranges
         if not flank_track[r+repeat_index][0]:
@@ -81,7 +88,7 @@ def match_jump(rpos, repeat_index, loci_coords, tracked, locus_qpos_range, qpos,
     return jump
 
 
-def deletion_jump(deletion_length, rpos, repeat_index, loci_keys, tracked, loci_coords, homopoly_positions, read_loci_variations, locus_qpos_range, qpos, loci_flank_qpos_range, flank_track, left_flank, right_flank):
+def deletion_jump(deletion_length, rpos, repeat_index, loci_keys, tracked, loci_coords, homopoly_positions, read_loci_variations, locus_qpos_range, qpos, loci_flank_qpos_range, flank_track, left_flank, right_flank, amp_right_flank_list, amp_left_flank_list, out_insertion_qpos_ranges_right, out_insertion_qpos_ranges_left, right_ins_rpos, left_ins_rpos, seq_len):
     """
     Return the number of repeat indices to jump when scanning through a deletion segment.
     The function tracks specifically if the deletion is segment has complete repeats in them
@@ -106,10 +113,14 @@ def deletion_jump(deletion_length, rpos, repeat_index, loci_keys, tracked, loci_
             if coord_start <= rpos:    
                 locus_qpos_range[r+repeat_index][0] = qpos        
                 tracked[r+repeat_index] = True    # set tracked as true
+                if amp_left_flank_list:
+                    Record_left_out_ins(amp_left_flank_list, r, repeat_index, locus_qpos_range, out_insertion_qpos_ranges_left, left_ins_rpos, coord_start)
 
             if coord_end < rpos:
                 
                 locus_qpos_range[r+repeat_index][1] = qpos
+                if amp_left_flank_list:
+                    Record_right_out_ins(amp_right_flank_list, r, repeat_index, locus_qpos_range, out_insertion_qpos_ranges_right, qpos, right_ins_rpos, coord_end, seq_len)
 
             # for storing repeat qpos ranges
             if coord_start+left_flank[r+repeat_index] <= rpos:
@@ -122,6 +133,8 @@ def deletion_jump(deletion_length, rpos, repeat_index, loci_keys, tracked, loci_
         elif coord_end < rpos:
             
             locus_qpos_range[r+repeat_index][1] = qpos
+            if amp_left_flank_list:
+                Record_right_out_ins(amp_right_flank_list, r, repeat_index, locus_qpos_range, out_insertion_qpos_ranges_right, qpos, right_ins_rpos, coord_end, seq_len)
 
         # for storing repeat qpos ranges
         if not flank_track[r+repeat_index][0]:
@@ -162,7 +175,7 @@ def deletion_jump(deletion_length, rpos, repeat_index, loci_keys, tracked, loci_
     return jump
 
 
-def insertion_jump(insertion_length, insert, rpos, repeat_index, loci_keys, tracked, loci_coords, homopoly_positions, read_loci_variations, locus_qpos_range, qpos, loci_flank_qpos_range, flank_track, left_flank, right_flank, out_insertion_qpos_ranges_left, out_insertion_qpos_ranges_right, left_ins_rpos, right_ins_rpos):
+def insertion_jump(insertion_length, insert, rpos, repeat_index, loci_keys, tracked, loci_coords, homopoly_positions, read_loci_variations, locus_qpos_range, qpos, loci_flank_qpos_range, flank_track, left_flank, right_flank, out_insertion_qpos_ranges_left, out_insertion_qpos_ranges_right, left_ins_rpos, right_ins_rpos, amp_right_flank_list, amp_left_flank_list, seq_len):
     """
     Return the number of repeat indices to jump when scanning through a insertion segment.
     The function tracks specifically if the deletion is segment has complete repeats in them
@@ -184,9 +197,15 @@ def insertion_jump(insertion_length, insert, rpos, repeat_index, loci_keys, trac
             if coord_start <= rpos:
                 locus_qpos_range[r+repeat_index][0] = qpos-insertion_length
                 tracked[r+repeat_index] = True    # set tracked as true
+                if amp_left_flank_list:
+                    Record_left_out_ins(amp_left_flank_list, r, repeat_index, locus_qpos_range, out_insertion_qpos_ranges_left, left_ins_rpos, coord_start)
+
             if coord_end == rpos:
                
                 locus_qpos_range[r+repeat_index][1] = qpos
+                if amp_left_flank_list:
+                    Record_right_out_ins(amp_right_flank_list, r, repeat_index, locus_qpos_range, out_insertion_qpos_ranges_right, qpos, right_ins_rpos, coord_end, seq_len)
+
                 # here jump can be done
 
             # for storing repeat qpos ranges
@@ -201,6 +220,8 @@ def insertion_jump(insertion_length, insert, rpos, repeat_index, loci_keys, trac
         elif coord_end == rpos:
             
             locus_qpos_range[r+repeat_index][1] = qpos
+            if amp_left_flank_list:
+                Record_right_out_ins(amp_right_flank_list, r, repeat_index, locus_qpos_range, out_insertion_qpos_ranges_right, qpos, right_ins_rpos, coord_end, seq_len)
 
         # for storing repeat qpos ranges
         if not flank_track[r+repeat_index][0]:
@@ -241,3 +262,28 @@ def insertion_jump(insertion_length, insert, rpos, repeat_index, loci_keys, trac
             else: break
 
     return jump
+
+def Record_right_out_ins(amp_right_flank_list, r, repeat_index, locus_qpos_range, out_insertion_qpos_ranges_right, qpos, right_ins_rpos, coord_end, seq_len):
+    needed_len = amp_right_flank_list[r+repeat_index]
+    if needed_len>0:
+        locus_qpos_range[r+repeat_index][1] += needed_len
+        # soft_ins_len = needed_len
+        if qpos < seq_len:
+            out_insertion_qpos_ranges_right[r+repeat_index].append((qpos, qpos + needed_len))
+            right_ins_rpos[r+repeat_index].append(coord_end+1)
+
+def Record_left_out_ins(amp_left_flank_list, r, repeat_index, locus_qpos_range, out_insertion_qpos_ranges_left, left_ins_rpos, coord_start):
+    needed_len = amp_left_flank_list[r+repeat_index]
+    if needed_len>0:
+        mod_flank = locus_qpos_range[r+repeat_index][0] - needed_len
+        if mod_flank>0:
+            locus_qpos_range[r+repeat_index][0] = mod_flank
+            soft_ins_len = needed_len
+        else:
+            locus_qpos_range[r+repeat_index][0] = 0
+            soft_ins_len = needed_len + mod_flank
+
+        current_qpos = locus_qpos_range[r+repeat_index][0]
+        if current_qpos != (current_qpos + soft_ins_len):
+            out_insertion_qpos_ranges_left[r+repeat_index].append((current_qpos, current_qpos + soft_ins_len))
+            left_ins_rpos[r+repeat_index].append(coord_start - 1)
