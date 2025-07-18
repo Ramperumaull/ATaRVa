@@ -273,6 +273,7 @@ The `INFO` field describes the general structure of the repeat region and includ
 | MOTIF | Motif of the repeat region |
 | END | End position of the repeat region |
 | ID  | Tag fetched form the extra column in BED file |
+
 **NOTE: The `ID` tag name depends on the optional column name in the BED file. If the BED file does not have a header, then the tag will be ID.**
 
 #### FORMAT fields
