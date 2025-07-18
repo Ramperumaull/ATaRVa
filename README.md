@@ -24,11 +24,11 @@ It is recommended to install this inside a Python virtual environment.
 
 ```bash
 # Create a python env
-python -m venv atarva_env
+$ python -m venv atarva_env
 
 # Activate the env
-source atarva_env/bin/activate
-pip install build
+$ source atarva_env/bin/activate
+$ pip install build
 
 # Download the git repo
 $ git clone https://github.com/SowpatiLab/ATaRVa.git
