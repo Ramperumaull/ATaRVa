@@ -76,7 +76,7 @@ def vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, homozygous_a
         # FORMAT = 'GT:AL:SD:PC:DP:SN:SQ:DS'
         FORMAT = 'GT:AL:SD:DP:SN:SQ:DS'
         if alt_state & (motif_size<=10):
-            deseq = motif_decomposition(ALT, motif_size)
+            deseq = motif_decomposition(ALT)
         else:
             deseq = '.'
         # SAMPLE = str(GT) + ':' + str(homozygous_allele) + ',' + str(homozygous_allele) + ':' + str(reads_len) + ':.:' + str(DP) + ':.:.' + ':' + deseq
@@ -185,7 +185,7 @@ def vcf_heterozygous_writer(contig, genotypes, locus_start, global_loci_variatio
             ds = []
             for iseq in alt_seqs:
                 if iseq:
-                    ds.append(motif_decomposition(iseq, motif_size))
+                    ds.append(motif_decomposition(iseq))
                 else:
                     ds.append('.')
             deseq = ','.join(ds)
