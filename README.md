@@ -31,7 +31,7 @@ $ source atarva_env/bin/activate
 $ pip install build
 
 # Download the git repo
-$ git clone https://github.com/SowpatiLab/ATaRVa.git
+$ git clone https://github.com/SowpatiLab/ATaRVa.git -b dev
 
 # Install
 $ cd ATaRVa
