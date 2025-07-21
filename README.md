@@ -20,8 +20,16 @@ ATaRVa can be directly installed using pip with the package name `ATaRVa`.
 $ pip install ATaRVa
 ```
 Alternatively, it can be installed from the source code:
+It is recommended to install this inside a Python virtual environment.
 
 ```bash
+# Create a python env
+$ python -m venv atarva_env
+
+# Activate the env
+$ source atarva_env/bin/activate
+$ pip install build
+
 # Download the git repo
 $ git clone https://github.com/SowpatiLab/ATaRVa.git
 
@@ -29,6 +37,9 @@ $ git clone https://github.com/SowpatiLab/ATaRVa.git
 $ cd ATaRVa
 $ python -m build
 $ pip install .
+
+# Deactivate the env
+$ deactivate
 ```
 Both of the methods add a console command `atarva`, which can be executed from any directory
 
