@@ -387,6 +387,9 @@ In all the above examples, the output of ATaRVa is saved to input.vcf unless -o 
 ### v0.1
 * First release.
 
+## Analysis script
+All scripts used for analysis are provided in [ATaRVa_Manuscript](https://github.com/SowpatiLab/ATaRVa_Manuscript)
+
 ## Citation
 If you find ATaRVa useful for your research, please cite it as follows:
 
