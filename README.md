@@ -108,7 +108,7 @@ Optional arguments:
                         number of threads. [default: 1]
   --haplotag <STR>      use haplotagged information for phasing. eg: [HP]. [default: None]
   --decompose           write the motif-decomposed sequence to the vcf. [default: False]
-  --amplicon            genotype mode for targeted-sequenced samples. [default: False]
+  --amplicon            genotype mode for targeted-sequenced samples. In this mode, the default values for `max-reads` and `flank` values are 1000 and 20 respectively [default: False]
   -log, --debug_mode    write the debug messages to log file. [default: False]
   -v, --version         show program's version number and exit
 ```
@@ -383,6 +383,7 @@ In all the above examples, the output of ATaRVa is saved to input.vcf unless -o 
 ## Changelog
 ### v0.3.0 (current)
 * Added `--amplicon` mode for targeted sequencing data
+* Added function to convert eqx read sequence
 * Improved Outlier cleaning in K-Means clustering
 * Implemented De-novo motif identification in motif-decomposition
 * Added optional tag `ID` in INFO field if BED input has additional column
