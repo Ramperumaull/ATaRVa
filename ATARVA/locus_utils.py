@@ -95,9 +95,9 @@ def process_locus(locus_key, global_loci_variations, global_read_variations, glo
         query,rep_range,ins_left,ins_right, left_rpos, right_rpos = locus_read_seq[each_read] # fetching repeat seq with flanks, correct start end position and insertion coordinates
 
         new_start,new_end = rep_range # new coordinates same as correct corrdinates
-        if new_end-new_start != locus_read_allele[each_read][0]:
-            print(f'Calculated allele length is not same at locus {locus_key} where alen is {locus_read_allele[each_read][0]} and ranges is {rep_range} and end-start = {new_end-new_start}')
-            sys.exit()
+        # if new_end-new_start != locus_read_allele[each_read][0]:
+        #     print(f'Calculated allele length is not same at locus {locus_key} where alen is {locus_read_allele[each_read][0]} and ranges is {rep_range} and end-start = {new_end-new_start}')
+        #     sys.exit()
         
         
         sorted_left = sorted(ins_left,key = lambda x: x[0]) # sorting the coordinates so if the 1st insertion is itself a repeat, fetch seq from that position; no need for checking the successive ins (only for all left ins)
@@ -117,7 +117,7 @@ def process_locus(locus_key, global_loci_variations, global_read_variations, glo
             elif inrepeat_ins(near_by_loci, ins_rpos, sorted_global_ins_rpos_set): continue
             else:
                 test_query = query[each_tuple[0]: each_tuple[1]]
-                align, pos = stripSW(Inputs(ref_seq, test_query))
+                align, pos = stripSW(Inputs(ref_seq, test_query), True)
                 que_len = len(test_query)
                 align_len = len(align)
 
@@ -148,7 +148,7 @@ def process_locus(locus_key, global_loci_variations, global_read_variations, glo
             elif inrepeat_ins(near_by_loci, ins_rpos, sorted_global_ins_rpos_set): continue
             else:
                 test_query = query[each_tuple[0]: each_tuple[1]]
-                align, pos = stripSW(Inputs(ref_seq, test_query))
+                align, pos = stripSW(Inputs(ref_seq, test_query), True)
                 que_len = len(test_query)
                 align_len = len(align)
                 if align_len<=round(0.2*min([que_len,ref_len])):

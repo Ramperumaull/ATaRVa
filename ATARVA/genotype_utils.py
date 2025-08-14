@@ -96,7 +96,7 @@ def length_genotyper(hallele_counter, global_loci_info, global_loci_variations, 
             mac = haplotypes[cidx]
 
             ALT, allele_length = alt_sequence(read_seqs, mac)
-            vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, allele_length, global_loci_variations, len(mac), out, ALT, log_bool, 'kmeans', decomp, hallele_counter)
+            vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, allele_length, global_loci_variations, len(mac), out, ALT, log_bool, 'kmeans', decomp, hallele_counter, True)
     
     elif (c1!=[] and len(c1)>=cutoff) and (c2!=[] and len(c2)>=cutoff):
         phased_read = ['.','.']
@@ -120,13 +120,13 @@ def length_genotyper(hallele_counter, global_loci_info, global_loci_variations, 
     elif c1!=[] and len(c1)>=cutoff:
 
         ALT, allele_length = alt_sequence(read_seqs, haplotypes[0])
-        vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, allele_length, global_loci_variations, len(haplotypes[0]), out, ALT, log_bool, 'kmeans', decomp, hallele_counter)
+        vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, allele_length, global_loci_variations, len(haplotypes[0]), out, ALT, log_bool, 'kmeans', decomp, hallele_counter, False)
         
 
     elif c2!=[] and len(c2)>=cutoff:
 
         ALT, allele_length = alt_sequence(read_seqs, haplotypes[1])
-        vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, allele_length, global_loci_variations, len(haplotypes[1]), out, ALT, log_bool, 'kmeans', decomp, hallele_counter)
+        vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, allele_length, global_loci_variations, len(haplotypes[1]), out, ALT, log_bool, 'kmeans', decomp, hallele_counter, False)
         
     else:
         return [False, 6] # write allele distribution with only one read supporting to it in vcf

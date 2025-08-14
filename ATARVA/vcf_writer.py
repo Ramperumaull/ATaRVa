@@ -40,7 +40,7 @@ def vcf_writer(out, bam, bam_name):
 
     out.write(str(vcf_header))
 
-def vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, homozygous_allele, global_loci_variations, reads_len, out, ALT_read, log_bool, tag, decomp, hallele_counter):
+def vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, homozygous_allele, global_loci_variations, reads_len, out, ALT_read, log_bool, tag, decomp, hallele_counter, haploid_state):
 
     locus_start = int(global_loci_info[locus_key][1])
     locus_end = int(global_loci_info[locus_key][2])
@@ -85,7 +85,10 @@ def vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, homozygous_a
         # FORMAT = 'GT:AL:SD:PC:DP:SN:SQ'
         FORMAT = 'GT:AL:SD:DP:SN:SQ'
         # SAMPLE = str(GT) + ':' + str(homozygous_allele) + ',' + str(homozygous_allele) + ':' + str(reads_len) + ':.:' + str(DP) + ':.:.'
-        SAMPLE = str(GT) + ':' + str(homozygous_allele) + ',' + str(homozygous_allele) + ':' + str(reads_len) + ':' + str(DP) + ':.:.'
+        if not haploid_state:
+            SAMPLE = str(GT) + ':' + str(homozygous_allele) + ',' + str(homozygous_allele) + ':' + str(reads_len) + ':' + str(DP) + ':.:.'
+        else:
+            SAMPLE = GT[0] + ':' + str(homozygous_allele) + ':' + str(reads_len) + ':' + str(DP) + ':.:.'
 
     
     print(*[contig, locus_start, '.',  ref.fetch(contig, locus_start, locus_end), ALT , 0, 'PASS', INFO, FORMAT, SAMPLE], file=out, sep='\t')

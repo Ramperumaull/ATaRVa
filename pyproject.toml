@@ -7,7 +7,7 @@ name = "ATaRVa"
 version = "0.3.0"
 description = "Analysis of Tandem Repeats Variations"
 readme = "README.md"
-license = { text = "MIT" }
+license = "MIT"
 authors = [
     { name = "Divya Tej Sowpati", email = "tej@ccmb.res.in" }
 ]
