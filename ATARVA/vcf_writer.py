@@ -26,6 +26,7 @@ def vcf_writer(out, bam, bam_name):
     vcf_header.info.add("AN", number=1, type="Integer", description="Number of alleles in called genotypes")
     vcf_header.info.add("MOTIF", number=1, type="String", description="Repeat motif")
     vcf_header.info.add("END", number=1, type="Integer", description="End position of the repeat region")
+    vcf_header.info.add(info_opt_tag, number=1, type="String", description="Optional tag for the locus")
     vcf_header.info.add("CT", number=1, type="String", description="Cluster type")
     vcf_header.info.add("EAC", number=1, type="String", description="Each Allele Count")
     # FORMAT
