@@ -1,7 +1,7 @@
 from ATARVA.locus_utils import process_locus
 from ATARVA.cstag_utils import parse_cstag
 from ATARVA.cigar_utils import parse_cigar_tag
-from ATARVA.operation_utils import update_homopolymer_coords
+from ATARVA.operation_utils import convert_eqx_read
 from ATARVA.genotype_utils import analyse_genotype
 from ATARVA.vcf_writer import *
 from ATARVA.consensus import consensus_seq_poa
@@ -45,7 +45,7 @@ def locus_processor(global_loci_keys, global_loci_ends, global_loci_variations, 
                     homozygous_allele = 0
             else:
                 ALT = '.'
-            vcf_homozygous_writer(ref, Chrom, locus_key, global_loci_info, homozygous_allele, global_loci_variations, len(reads_of_homozygous), out, ALT, log_bool, '.', decomp, hallele_counter)
+            vcf_homozygous_writer(ref, Chrom, locus_key, global_loci_info, homozygous_allele, global_loci_variations, len(reads_of_homozygous), out, ALT, log_bool, '.', decomp, hallele_counter, male)
             genotyped_loci += 1
         elif category == 2:
             state, skip_point = analyse_genotype(Chrom, locus_key, global_loci_info, global_loci_variations, global_read_variations, global_snp_positions, hallele_counter, ref, out, sorted_global_snp_list, snpQ, snpC, snpD, snpR, phasingR, maxR, max_limit, male, log_bool, decomp, amplicon)
@@ -187,6 +187,11 @@ def cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshold, ou
             read_chrom = read.reference_name
             read_start = read.reference_start
             read_end   = read.reference_end
+            if amplicon:
+                qpos_start = read.query_alignment_start # query alignment start pos
+                qpos_end = read.query_alignment_end # query alignment end pos
+            else:
+                qpos_start = 0; qpos_end = 0
 
             while global_loci_ends and read_start > global_loci_ends[0]:
 
@@ -248,6 +253,7 @@ def cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshold, ou
             # repeat loci covered by the read
             loci_coords = []; loci_keys = []
             left_flank_list = []; right_flank_list = []
+            amp_left_flank_list = []; amp_right_flank_list = []
 
             for row in tbx.fetch(read_chrom, read_start, read_end):
                 
@@ -267,8 +273,11 @@ def cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshold, ou
                 elif locus_start>=End[0]: break
                 
 
+                passed_loci = False # if the loci passed in normal or amplicon mode, then write it in global variables
+
                 # if only the read completely covers the repeat
                 if ( locus_start >= read_start ) & ( locus_end <= read_end ):
+                    passed_loci = True
                     left_flank = min(flank, locus_start - read_start)
                     right_flank = min(flank, read_end - locus_end)
                     left_flank_list.append(left_flank)
@@ -276,6 +285,56 @@ def cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshold, ou
 
                     loci_coords.append((locus_start - left_flank, locus_end + right_flank))
 
+                    # locus_key = f'{read_chrom}:{locus_start}-{locus_end}'
+                    # loci_keys.append(locus_key)
+                    # read_loci_variations[locus_key] = {'halen': locus_len, 'alen': locus_len, 'rlen': locus_len, 'seq': []}
+
+                    # if locus_key not in global_loci_variations:
+                    #     global_loci_variations[locus_key] = {'rlen': locus_len, 'reads': [], 'read_allele': {}, 'read_sequence': {}, 'read_tag':[]}
+                    #     global_loci_info[locus_key] = row
+
+                    #     # adding the locus key when it is first encountered
+                    #     global_loci_ends.append(locus_end)
+                    #     global_loci_keys.append(locus_key)
+
+                elif amplicon:
+                    enough_soft_flank = True # Add the locus_key if this is True
+
+                    # for upstream soft_clip, checking the length compared to flank length
+                    if locus_start < read_start:
+                        mod_locus_start = read_start
+                        if qpos_start >= flank: # SUS! what if the soft_clip has less num of bp than flank? and covered the repeat completely?
+                            left_flank = 0
+                        else:
+                            enough_soft_flank = False
+                            left_flank = None
+                    else:
+                        mod_locus_start = locus_start
+                        left_flank = min(flank, locus_start - read_start)
+                    if left_flank!=None:
+                        left_flank_list.append(left_flank)
+
+                    # for downstream soft_clip, checking the length compared to flank length
+                    seq_len = read.query_length
+                    if locus_end > read_end:
+                        mod_locus_end = read_end
+                        if (seq_len-qpos_end) >= flank: # SUS! what if the soft_clip has less num of bp than flank? and covered the repeat completely?
+                            right_flank = 0
+                        else:
+                            enough_soft_flank = False
+                            right_flank = None
+                    else:
+                        mod_locus_end = locus_end
+                        right_flank = min(flank, read_end - locus_end)
+                    if right_flank!=None:
+                        right_flank_list.append(right_flank)
+
+                    if enough_soft_flank:
+                        passed_loci = True
+                        # if the read covers the repeat completely with soft-clipping, possibly
+                        loci_coords.append((mod_locus_start - left_flank, mod_locus_end + right_flank))
+
+                if passed_loci:
                     locus_key = f'{read_chrom}:{locus_start}-{locus_end}'
                     loci_keys.append(locus_key)
                     read_loci_variations[locus_key] = {'halen': locus_len, 'alen': locus_len, 'rlen': locus_len, 'seq': []}
@@ -297,6 +356,16 @@ def cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshold, ou
             cigar_tuples = read.cigartuples
             read_sequence = read.query_sequence
 
+            tmp_qpos = 0
+            for cigar in cigar_tuples:
+                if (cigar[0] == 0) or (cigar[0] == 7):
+                    tmp_seq = read_sequence[tmp_qpos :tmp_qpos + cigar[1]] 
+                    break
+                elif (cigar[0] == 1) or (cigar[0] == 4) or (cigar[0] == 8): tmp_qpos += cigar[1] 
+                
+            if '=' in tmp_seq:
+                read_sequence = convert_eqx_read(read_chrom, read_start, cigar_tuples, read_sequence, ref)
+
             cigar_one = cigar_tuples[0]
 
             global_read_ends.append(read_end)
@@ -309,17 +378,39 @@ def cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshold, ou
             if hp: hp_tag = read.get_tag(hp_code)
             else: hp_tag = None
 
-            if amplicon: hp = True
+            init_amp_var = [amp_right_flank_list, amp_left_flank_list, read_chrom, flank, qpos_start, qpos_end]
+            if amplicon:
+                hp = True
+                for each_flank in left_flank_list:
+                    needed_len = flank - each_flank
+                    amp_left_flank_list.append(needed_len if each_flank < flank else 0)
+                for each_flank in right_flank_list:
+                    needed_len = flank - each_flank
+                    amp_right_flank_list.append(needed_len if each_flank < flank else 0)
+
                 
             if read.has_tag('cs'):
                 del cigar_tuples
                 cs_tag = read.get_tag('cs')
-                parse_cstag(read_index, cs_tag, read_start, loci_keys, loci_coords, read_loci_variations, homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read_quality, cigar_one, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp)
+                if amp_left_flank_list:
+                    init_amp_var.append(ref) # add ref object only if its amplicon mode
+                else:
+                    init_amp_var.append(0)
+                parse_cstag(read_index, cs_tag, read_start, loci_keys, loci_coords, read_loci_variations, homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read_quality, cigar_one, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, init_amp_var)
+                del read_sequence
+                del read_quality
             else :
                 parse_cigar_tag(read_index, cigar_tuples, read_start, loci_keys, loci_coords, read_loci_variations,
-                                homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read, ref, read_quality, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp)
+                                homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read, ref, read_quality, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, init_amp_var)
+                del read_sequence
+                del read_quality
 
             for locus_key in read_loci_variations:
+
+                if amplicon:
+                    if not read_loci_variations[locus_key]['seq']:
+                        continue
+
                 global_loci_variations[locus_key]['reads'].append(read_index)
                 global_loci_variations[locus_key]['read_allele'][read_index] = [read_loci_variations[locus_key]['halen'], read_loci_variations[locus_key]['alen']]
                 global_loci_variations[locus_key]['read_sequence'][read_index] = read_loci_variations[locus_key]['seq']
@@ -456,12 +547,12 @@ def mini_cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshol
                 read_chrom = read.reference_name
                 read_start = read.reference_start
                 read_end   = read.reference_end
-                
-                # if only the read completely covers the repeat
-                if not (( locus_start >= read_start ) & ( locus_end <= read_end )):
-                    continue
+                if amplicon:
+                    qpos_start = read.query_alignment_start # query alignment start pos
+                    qpos_end = read.query_alignment_end # query alignment end pos
+                else:
+                    qpos_start = 0; qpos_end = 0
 
-                
                 # information locally saved for each read and all the loci it covers
                 read_loci_variations = {}
                 # set of homopolymer positions within the reference part that is covered by the read
@@ -471,29 +562,89 @@ def mini_cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshol
                 loci_coords = []; loci_keys = []
  
                 left_flank_list = []; right_flank_list = []
+                amp_left_flank_list = []; amp_right_flank_list = []
 
-                left_flank = min(flank, locus_start - read_start)
-                right_flank = min(flank, read_end - locus_end)
-                left_flank_list.append(left_flank)
-                right_flank_list.append(right_flank)
+                passed_loci = False # if the loci passed in normal or amplicon mode, then write it in global variables
+                
+                # if only the read completely covers the repeat
+                if ( locus_start >= read_start ) & ( locus_end <= read_end ):
+                    passed_loci = True
+                    left_flank = min(flank, locus_start - read_start)
+                    right_flank = min(flank, read_end - locus_end)
+                    left_flank_list.append(left_flank)
+                    right_flank_list.append(right_flank)
 
-                loci_coords.append((locus_start - left_flank, locus_end + right_flank))
+                    loci_coords.append((locus_start - left_flank, locus_end + right_flank))
 
-                locus_key = f'{read_chrom}:{locus_start}-{locus_end}'
-                loci_keys.append(locus_key)
-                read_loci_variations[locus_key] = {'halen': locus_len, 'alen': locus_len, 'rlen': locus_len, 'seq': []}
 
-                if locus_key not in global_loci_variations:
-                    global_loci_variations[locus_key] = {'rlen': locus_len, 'reads': [], 'read_allele': {}, 'read_sequence': {}, 'read_tag':[]}
-                    global_loci_info[locus_key] = row
-                    global_loci_ends.append(locus_end)
-                    global_loci_keys.append(locus_key)
+                elif amplicon:
+                    enough_soft_flank = True # Add the locus_key if this is True
+                    # qpos_start = read.query_alignment_start
+                    # qpos_end = read.query_alignment_end
+                    # for upstream soft_clip, checking the length compared to flank length
+                    if locus_start < read_start:
+                        mod_locus_start = read_start
+                        if qpos_start >= flank: # SUS! what if the soft_clip has less num of bp than flank? and covered the repeat completely?
+                            left_flank = 0
+                        else:
+                            enough_soft_flank = False
+                            left_flank = None
+                    else:
+                        mod_locus_start = locus_start
+                        left_flank = min(flank, locus_start - read_start)
+                    if left_flank!=None:
+                        left_flank_list.append(left_flank)
+
+                    # for downstream soft_clip, checking the length compared to flank length
+                    seq_len = read.query_length
+                    if locus_end > read_end:
+                        mod_locus_end = read_end
+                        if (seq_len-qpos_end) >= flank: # SUS! what if the soft_clip has less num of bp than flank? and covered the repeat completely?
+                            right_flank = 0
+                        else:
+                            enough_soft_flank = False
+                            right_flank = None
+                    else:
+                        mod_locus_end = locus_end
+                        right_flank = min(flank, read_end - locus_end)
+                    if right_flank!=None:
+                        right_flank_list.append(right_flank)
+
+                    if enough_soft_flank:
+                        passed_loci = True
+                        # if the read covers the repeat completely with soft-clipping, possibly
+                        loci_coords.append((mod_locus_start - left_flank, mod_locus_end + right_flank))
+                
+                else: # if its wgs mode and didnt covered the repeat than move to next read
+                    continue
+
+                if passed_loci:
+                
+                    locus_key = f'{read_chrom}:{locus_start}-{locus_end}'
+                    loci_keys.append(locus_key)
+                    read_loci_variations[locus_key] = {'halen': locus_len, 'alen': locus_len, 'rlen': locus_len, 'seq': []}
+
+                    if locus_key not in global_loci_variations:
+                        global_loci_variations[locus_key] = {'rlen': locus_len, 'reads': [], 'read_allele': {}, 'read_sequence': {}, 'read_tag':[]}
+                        global_loci_info[locus_key] = row
+                        global_loci_ends.append(locus_end)
+                        global_loci_keys.append(locus_key)
 
         
                 read_index += 1
                 read_quality = read.query_qualities
                 cigar_tuples = read.cigartuples
                 read_sequence = read.query_sequence
+
+                tmp_qpos = 0
+                for cigar in cigar_tuples:
+                    if (cigar[0] == 0) or (cigar[0] == 7):
+                        tmp_seq = read_sequence[tmp_qpos :tmp_qpos + cigar[1]] 
+                        break
+                    elif (cigar[0] == 1) or (cigar[0] == 4) or (cigar[0] == 8): tmp_qpos += cigar[1] 
+
+                if '=' in tmp_seq:
+                    read_sequence = convert_eqx_read(read_chrom, read_start, cigar_tuples, read_sequence, ref)
 
                 cigar_one = cigar_tuples[0]
 
@@ -506,17 +657,38 @@ def mini_cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshol
                 if hp: hp_tag = read.get_tag(hp_code)
                 else: hp_tag = None
 
-                if amplicon: hp = True
+                init_amp_var = [amp_right_flank_list, amp_left_flank_list, read_chrom, flank, qpos_start, qpos_end]
+                if amplicon:
+                    hp = True
+                    for each_flank in left_flank_list:
+                        needed_len = flank - each_flank
+                        amp_left_flank_list.append(needed_len if each_flank < flank else 0)
+                    for each_flank in right_flank_list:
+                        needed_len = flank - each_flank
+                        amp_right_flank_list.append(needed_len if each_flank < flank else 0)
     
                 if read.has_tag('cs'):
                     del cigar_tuples
                     cs_tag = read.get_tag('cs')
-                    parse_cstag(read_index, cs_tag, read_start, loci_keys, loci_coords, read_loci_variations, homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read_quality, cigar_one, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp)
+                    if amp_left_flank_list:
+                        init_amp_var.append(ref) # add ref object only if its amplicon mode
+                    else:
+                        init_amp_var.append(0)
+                    parse_cstag(read_index, cs_tag, read_start, loci_keys, loci_coords, read_loci_variations, homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read_quality, cigar_one, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, init_amp_var)
+                    del read_sequence
+                    del read_quality
                 else :
                     parse_cigar_tag(read_index, cigar_tuples, read_start, loci_keys, loci_coords, read_loci_variations,
-                                homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read, ref, read_quality, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp)
+                                homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read, ref, read_quality, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, init_amp_var)
+                    del read_sequence
+                    del read_quality
     
                 for locus_key in read_loci_variations:
+
+                    if amplicon:
+                        if not read_loci_variations[locus_key]['seq']:
+                            continue
+
                     global_loci_variations[locus_key]['reads'].append(read_index)
                     global_loci_variations[locus_key]['read_allele'][read_index] = [read_loci_variations[locus_key]['halen'], read_loci_variations[locus_key]['alen']]
                     global_loci_variations[locus_key]['read_sequence'][read_index] = read_loci_variations[locus_key]['seq']

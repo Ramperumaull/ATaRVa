@@ -13,7 +13,7 @@ def vcf_writer(out, bam, bam_name):
     vcf_header = pysam.VariantHeader()
 
     # command
-    vcf_header.add_line(f"##command=ATaRVa_0.2.0 {' '.join(sys.argv)}")
+    vcf_header.add_line(f"##command=ATaRVa_0.3.0 {' '.join(sys.argv)}")
 
     for contig in bam.header['SQ']:
         vcf_header.contigs.add(contig['SN'], length=contig['LN'])
@@ -40,7 +40,7 @@ def vcf_writer(out, bam, bam_name):
 
     out.write(str(vcf_header))
 
-def vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, homozygous_allele, global_loci_variations, reads_len, out, ALT_read, log_bool, tag, decomp, hallele_counter):
+def vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, homozygous_allele, global_loci_variations, reads_len, out, ALT_read, log_bool, tag, decomp, hallele_counter, haploid_state):
 
     locus_start = int(global_loci_info[locus_key][1])
     locus_end = int(global_loci_info[locus_key][2])
@@ -77,7 +77,7 @@ def vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, homozygous_a
         # FORMAT = 'GT:AL:SD:PC:DP:SN:SQ:DS'
         FORMAT = 'GT:AL:SD:DP:SN:SQ:DS'
         if alt_state & (motif_size<=10):
-            deseq = motif_decomposition(ALT, motif_size, motif)
+            deseq = motif_decomposition(ALT)
         else:
             deseq = '.'
         # SAMPLE = str(GT) + ':' + str(homozygous_allele) + ',' + str(homozygous_allele) + ':' + str(reads_len) + ':.:' + str(DP) + ':.:.' + ':' + deseq
@@ -86,7 +86,10 @@ def vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, homozygous_a
         # FORMAT = 'GT:AL:SD:PC:DP:SN:SQ'
         FORMAT = 'GT:AL:SD:DP:SN:SQ'
         # SAMPLE = str(GT) + ':' + str(homozygous_allele) + ',' + str(homozygous_allele) + ':' + str(reads_len) + ':.:' + str(DP) + ':.:.'
-        SAMPLE = str(GT) + ':' + str(homozygous_allele) + ',' + str(homozygous_allele) + ':' + str(reads_len) + ':' + str(DP) + ':.:.'
+        if not haploid_state:
+            SAMPLE = str(GT) + ':' + str(homozygous_allele) + ',' + str(homozygous_allele) + ':' + str(reads_len) + ':' + str(DP) + ':.:.'
+        else:
+            SAMPLE = GT[0] + ':' + str(homozygous_allele) + ':' + str(reads_len) + ':' + str(DP) + ':.:.'
 
     
     print(*[contig, locus_start, '.',  ref.fetch(contig, locus_start, locus_end), ALT , 0, 'PASS', INFO, FORMAT, SAMPLE], file=out, sep='\t')
@@ -102,7 +105,7 @@ def vcf_heterozygous_writer(contig, genotypes, locus_start, global_loci_variatio
         optional_tag = f';{info_opt_tag}={global_loci_info[locus_key][5]}'
     else:
         optional_tag = ''
-        
+
     final_allele = set(genotypes)
     heterozygous_allele = ''
     AC = 'AC'
@@ -187,7 +190,7 @@ def vcf_heterozygous_writer(contig, genotypes, locus_start, global_loci_variatio
             ds = []
             for iseq in alt_seqs:
                 if iseq:
-                    ds.append(motif_decomposition(iseq, motif_size, motif))
+                    ds.append(motif_decomposition(iseq))
                 else:
                     ds.append('.')
             deseq = ','.join(ds)
