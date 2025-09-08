@@ -313,13 +313,13 @@ def insertion_jump(insertion_length, insert, rpos, repeat_index, loci_keys, trac
             try:
                 out_insertion_qpos_ranges_left[r+repeat_index].append((qpos-insertion_length, qpos))
                 left_ins_rpos[r+repeat_index].append(rpos)
-            except TypeError:
+            except AttributeError:
                 pass
         elif coord_end-right_flank[r+repeat_index]+1 <= rpos <= coord_end: # +1 is included so ins near the end pos is not taken into account as it is already added
             try:
                 out_insertion_qpos_ranges_right[r+repeat_index].append((qpos-insertion_length, qpos))
                 right_ins_rpos[r+repeat_index].append(rpos)
-            except TypeError:
+            except AttributeError:
                 pass
     jump = 0    # jump beyond the repeat where all positions are tracked
     if loci_coords[repeat_index + r - 1][1] < rpos:

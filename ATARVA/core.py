@@ -34,11 +34,11 @@ def parse_args():
     optional.add_argument('-q', '--map-qual', type=int, metavar='<INT>', default=5, help='minimum mapping quality of the reads to be considered. [default: 5]')
     optional.add_argument('--contigs', nargs='+', help='contigs to get genotyped [chr1 chr12 chr22 ..]. If not mentioned every contigs in the region file will be genotyped.')
     optional.add_argument('--min-reads', type=int, metavar='<INT>', default=10, help='minimum read coverage after quality cutoff at a locus to be genotyped. [default: 10]')
-    optional.add_argument('--max-reads', type=int, metavar='<INT>', default=100, help='maximum number of reads to be used for genotyping a locus. [default: 100]')
+    optional.add_argument('--max-reads', type=int, metavar='<INT>', default=None, help='maximum number of reads to be used for genotyping a locus. [default: 100]')
     optional.add_argument('--snp-dist', type=int, metavar='<INT>', default=3000, help='maximum distance of the SNP from repeat region to be considered for phasing. [default: 3000]')
     optional.add_argument('--snp-count', type=int, metavar='<INT>', default=3, help='number of SNPs to be considered for phasing (minimum value = 1). [default: 3]')
     optional.add_argument('--snp-qual', type=int, metavar='<INT>', default=13, help='minimum basecall quality at the SNP position to be considered for phasing. [default: 13]')
-    optional.add_argument('--flank', type=int, metavar='<INT>', default=10, help='length of the flanking region (in base pairs) to search for insertion with a repeat in it. [default: 10]')
+    optional.add_argument('--flank', type=int, metavar='<INT>', default=None, help='length of the flanking region (in base pairs) to search for insertion with a repeat in it. [default: 10]')
     optional.add_argument('--snp-read', type=float, metavar='<FLOAT>', default=0.2, help='a positive float as the minimum fraction of snp\'s read contribution to be used for phasing. [default: 0.25]')
     optional.add_argument('--phasing-read', type=float, metavar='<FLOAT>', default=0.4, help='a positive float as the minimum fraction of total read contribution from the phased read clusters. [default: 0.4]')
     optional.add_argument('-o',  '--vcf', type=str, metavar='<FILE>', default='', help='name of the output file, output is in vcf format. [default: sys.stdout]')
@@ -168,8 +168,11 @@ def main():
     maxR = args.max_reads
     flank_length = args.flank
     if args.amplicon:
-        if maxR == 100: maxR = 1000
-        if flank_length == 10: flank_length = 20
+        if args.max_reads is None: maxR = 1000
+        if args.flank is None: flank_length = 20
+    else:
+        if maxR is None: maxR = 100
+        if flank_length is None: flank_length = 10
 
     threads = args.threads
     split_point = total_loci // threads

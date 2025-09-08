@@ -35,6 +35,7 @@ def locus_processor(global_loci_keys, global_loci_ends, global_loci_variations, 
         read_seqs = global_loci_variations[locus_key]['read_sequence']
         if category == 1:
             ref_allele_length = lend - lstart
+            unique_alen = list(hallele_counter.keys())
             if homozygous_allele != ref_allele_length:
                 seqs = [seq for seq in [read_seqs[read_id][0] for read_id in reads_of_homozygous] if seq!='']
                 if len(seqs)>0:
@@ -45,7 +46,11 @@ def locus_processor(global_loci_keys, global_loci_ends, global_loci_variations, 
                     homozygous_allele = 0
             else:
                 ALT = '.'
-            vcf_homozygous_writer(ref, Chrom, locus_key, global_loci_info, homozygous_allele, global_loci_variations, len(reads_of_homozygous), out, ALT, log_bool, '.', decomp, hallele_counter, male)
+            if male:
+                allele_range = f'{min(unique_alen)}-{max(unique_alen)}'
+            else:
+                allele_range = f'{homozygous_allele}-{homozygous_allele},{min(unique_alen)}-{max(unique_alen)}'
+            vcf_homozygous_writer(ref, Chrom, locus_key, global_loci_info, homozygous_allele, global_loci_variations, len(reads_of_homozygous), out, ALT, log_bool, '.', decomp, hallele_counter, male, allele_range, None)
             genotyped_loci += 1
         elif category == 2:
             state, skip_point = analyse_genotype(Chrom, locus_key, global_loci_info, global_loci_variations, global_read_variations, global_snp_positions, hallele_counter, ref, out, sorted_global_snp_list, snpQ, snpC, snpD, snpR, phasingR, maxR, max_limit, male, log_bool, decomp, amplicon)
@@ -63,9 +68,11 @@ def locus_processor(global_loci_keys, global_loci_ends, global_loci_variations, 
             allele_count = {}
             ALT_seqs = []
             phased_read = []
+            alen_list = []
             for hap_reads in haplotypes:
                 phased_read.append(len(hap_reads))
                 seqs = [seq for seq in [read_seqs[read_id][0] for read_id in hap_reads] if seq!='']
+                alen_list.append([len(read_seqs[read_id][0]) for read_id in hap_reads])
                 if len(seqs)>0:
                     ALT = consensus_seq_poa(seqs)
                     allele_length = len(ALT)
@@ -80,7 +87,8 @@ def locus_processor(global_loci_keys, global_loci_ends, global_loci_variations, 
                     allele_count[allele_length] = len(hap_reads)
                 else:
                     allele_count[str(allele_length)] = len(hap_reads)
-            vcf_heterozygous_writer(Chrom, genotypes, lstart, global_loci_variations, lend, allele_count, len(reads_of_homozygous), global_loci_info, ref, out, '.', phased_read, 0, ALT_seqs, log_bool, 'HP', decomp, hallele_counter)
+            allele_range = f'{min(alen_list[0])}-{max(alen_list[0])},{min(alen_list[1])}-{max(alen_list[1])}'
+            vcf_heterozygous_writer(Chrom, genotypes, lstart, global_loci_variations, lend, allele_count, len(reads_of_homozygous), global_loci_info, ref, out, '.', phased_read, 0, ALT_seqs, log_bool, 'HP', decomp, hallele_counter, allele_range, [None])
             genotyped_loci += 1
         else:
             if skip_point == 0:
@@ -130,6 +138,8 @@ def cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshold, ou
             format='%(levelname)s - %(message)s'
         )
         logger = logging.getLogger("MyLogger")
+
+    if amplicon: hp_code = None
     
     dwrite = tidx!=-1
 
@@ -478,6 +488,8 @@ def mini_cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshol
             format='%(levelname)s - %(message)s'
         )
         logger = logging.getLogger("MyLogger")
+
+    if amplicon: hp_code = None
 
     dwrite = tidx!=-1
 
