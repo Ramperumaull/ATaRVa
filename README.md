@@ -321,7 +321,7 @@ Performs motif-decomposition on ALT sequences.<br>
 **NOTE: Only applicable for motif length <= 10**
 
 ### `--amplicon`
-genotyping mode for targeted sequencing data.
+genotyping mode for targeted sequencing data. In this mode, the default values for `max-reads` and `flank` values are 1000 and 20 respectively.
 
 ### `-v or --version`
 Prints the version info of ATaRVa.
