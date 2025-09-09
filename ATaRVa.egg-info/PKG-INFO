@@ -1,5 +1,31 @@
+Metadata-Version: 2.4
+Name: ATaRVa
+Version: 0.3.0
+Summary: Analysis of Tandem Repeats Variations
+Author-email: Divya Tej Sowpati <tej@ccmb.res.in>
+Maintainer-email: Akshay Kumar Avvaru <avvaru@ccmb.res.in>, Abishek Kumar <abishekks@csirccmb.org>
+License-Expression: MIT
+Project-URL: Repository, https://github.com/sowpatilab/ATaRVa.git
+Keywords: tandem repeats,repeats,long reads,ONT,PacBio,satellites,vntr,tr,microsatellites,macrosatellites,str
+Classifier: Development Status :: 4 - Beta
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Intended Audience :: Science/Research
+Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy>=1.26.4
+Requires-Dist: pyabpoa>=1.5.3
+Requires-Dist: pysam>=0.22.1
+Requires-Dist: scikit-learn>=1.4.1
+Requires-Dist: scipy>=1.12.0
+Requires-Dist: threadpoolctl>=3.3.0
+Requires-Dist: tqdm>=4.66.1
+Requires-Dist: bitarray>=3.0.0
+Dynamic: license-file
+
 # ATaRVa - a tandem repeat genotyper
-![Badge-PyPI](https://img.shields.io/badge/PyPI-v0.3.1-brightgreen)
+![Badge-PyPI](https://img.shields.io/badge/PyPI-v0.3.0-brightgreen)
 ![Badge-License](https://img.shields.io/badge/License-MIT-blue)
 
 <p align=center>
@@ -31,12 +57,15 @@ $ source atarva_env/bin/activate
 $ pip install build
 
 # Download the git repo
-$ git clone https://github.com/SowpatiLab/ATaRVa.git -b dev
+$ git clone https://github.com/SowpatiLab/ATaRVa.git
 
 # Install
 $ cd ATaRVa
 $ python -m build
 $ pip install .
+
+# Deactivate the env
+$ deactivate
 ```
 Both of the methods add a console command `atarva`, which can be executed from any directory
 
@@ -108,7 +137,8 @@ Optional arguments:
                         number of threads. [default: 1]
   --haplotag <STR>      use haplotagged information for phasing. eg: [HP]. [default: None]
   --decompose           write the motif-decomposed sequence to the vcf. [default: False]
-  --amplicon            genotype mode for targeted-sequenced samples. In this mode, the default values for `max-reads` and `flank` values are 1000 and 20 respectively [default: False]
+  --amplicon            genotype mode for targeted-sequenced samples.
+                        In this mode, the default values for `max-reads` and `flank` values are 1000 and 20 respectively [default: False]
   -log, --debug_mode    write the debug messages to log file. [default: False]
   -v, --version         show program's version number and exit
 ```
@@ -293,7 +323,6 @@ The `FORMAT` fields and their values are provided in the last two columns of the
 |-----------------|---------------------------------|
 | GT | Genotype of the sample |
 | AL | Length of the alleles in base pairs |
-| AR | Range of allele length in each cluster |
 | SD | Number of supporting reads for each alleles |
 | DP | Number of the supporting reads for the repeat locus |
 | SN | Number of SNPs used for phasing |
@@ -322,7 +351,7 @@ Performs motif-decomposition on ALT sequences.<br>
 **NOTE: Only applicable for motif length <= 10**
 
 ### `--amplicon`
-genotyping mode for targeted sequencing data. In this mode, the default values for `max-reads` and `flank` values are 1000 and 20 respectively.
+genotyping mode for targeted sequencing data. In this mode, the default values of `--max-reads` & `--flank` are 1000 & 20 respectively.
 
 ### `-v or --version`
 Prints the version info of ATaRVa.
@@ -382,12 +411,7 @@ $ docker run -i -t --rm -v /path_of_necessary_files/:/folder_name atarva:latest 
 In all the above examples, the output of ATaRVa is saved to input.vcf unless -o is specified.
 
 ## Changelog
-### v0.3.1
-* Added checkpoint in amplicon mode for non-repeatedness in ALT sequence
-* Refined Motif-decomposition sequence for motif breaks
-* Added `AR` tag in VCF-SAMPLE column for allele range
-
-### v0.3.0
+### v0.3.0 (current)
 * Added `--amplicon` mode for targeted sequencing data
 * Added function to convert eqx read sequence
 * Improved Outlier cleaning in K-Means clustering
@@ -408,6 +432,9 @@ In all the above examples, the output of ATaRVa is saved to input.vcf unless -o 
 
 ### v0.1
 * First release.
+
+## Analysis script
+All scripts used for analysis are provided in [ATaRVa_Manuscript](https://github.com/SowpatiLab/ATaRVa_Manuscript)
 
 ## Citation
 If you find ATaRVa useful for your research, please cite it as follows:
