@@ -104,6 +104,8 @@ def length_genotyper(hallele_counter, global_loci_info, global_loci_variations, 
 
             if not br:
                 cutoff = max(0.05, len(alen_x) / len(alen_data)) * len(alen_data) # min 5 % of total reads should be in the cluster
+                if amplicon:
+                    cutoff = max(5, cutoff) # min 5 reads should be in the cluster if amplicon
 
         if len(c1) < cutoff and len(c2) >= cutoff:
             process_conditions(alen_c1, alen_c2)
