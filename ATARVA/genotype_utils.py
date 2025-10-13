@@ -8,7 +8,7 @@ import warnings
 from threadpoolctl import threadpool_limits
 from ATARVA.decomp_utils import motif_decomposition
 
-nan_value = float('nan')
+
 def confidence_interval(data):
     data = np.array(data)
     mean = np.mean(data)
@@ -19,7 +19,7 @@ def confidence_interval(data):
     p = mean/(var**2) # prob of single success
     ci = nbinom.interval(0.95, n, p, loc=0)
 
-    if nan_value in ci:
+    if np.any(np.isnan(ci)):
         return [int(mean), int(mean)]
     else:
         return [round(ci[0]), round(ci[1])]
