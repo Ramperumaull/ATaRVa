@@ -2,7 +2,7 @@ from collections import Counter
 from bitarray import bitarray
 import regex as re
 
-divisor_dict = {4:[2], 6:[2,3], 8:[2,4], 9:[3], 10:[2,5]}
+divisor_dict = {2:[1], 3:[1], 4:[1,2], 5:[1], 6:[1,2,3], 7:[1], 8:[1,2,4], 9:[1,3], 10:[1,2,5]}
 def convert_to_bitset(seq):
     lbit = {'A': '0', 'C': '0', 'G': '1', 'T': '1', 'N': '1'}
     rbit = {'A': '0', 'C': '1', 'G': '0', 'T': '1', 'N': '1'}
@@ -274,9 +274,13 @@ def motif_decomposition(sequence, motif_size):
     gap_regions = [[0, seq_len]]
     rounds = 0
     while any(sequential_part):
-        if rounds >= 1:
+        if rounds == 1:
             shift_list[0][:] = 0
-        gap_wise_shift = max_match(shift_list, gap_regions)
+            
+        if (rounds==0) and (motif_size==1):
+            gap_wise_shift = [1]
+        else:
+            gap_wise_shift = max_match(shift_list, gap_regions)
 
         for index, best_shift in enumerate(gap_wise_shift):
             

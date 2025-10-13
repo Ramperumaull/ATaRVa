@@ -8,8 +8,18 @@ from ATARVA.consensus import consensus_seq_poa
 
 from tqdm import tqdm
 import pysam
-import sys
+import numpy as np
+from scipy import stats
 import logging
+
+def confidence_interval(data):
+    data = np.array(data)
+    mean = np.mean(data)
+    sem = stats.sem(data)
+    if sem==0:
+        return [int(mean), int(mean)]
+    ci = stats.t.interval(0.95, df=len(data)-1, loc=mean, scale=sem)
+    return [round(ci[0]), round(ci[1])]
 
 def locus_processor(global_loci_keys, global_loci_ends, global_loci_variations, global_read_variations, global_snp_positions, prev_reads, sorted_global_snp_list, maxR, minR, ref, Chrom, global_loci_info, out, snpQ, snpC, snpD, snpR, phasingR, tbx, flank, sorted_global_ins_rpos_set, log_bool, logger, male, prev_locus_end, decomp, hp_code, amplicon):
 
@@ -30,7 +40,7 @@ def locus_processor(global_loci_keys, global_loci_ends, global_loci_variations, 
             sorted_global_snp_list = sorted(global_snp_positions.keys())
         
 
-        prev_reads, category, homozygous_allele, reads_of_homozygous, hallele_counter, skip_point, max_limit, haplotypes = process_locus(locus_key, global_loci_variations, global_read_variations, global_snp_positions, prev_reads, sorted_global_snp_list, maxR, minR, global_loci_info, near_by_loci, sorted_global_ins_rpos_set, Chrom, lstart, lend, ref, log_bool, logger, snpD, prev_locus_end, hp_code, amplicon)
+        prev_reads, category, homozygous_allele, reads_of_homozygous, hallele_counter, skip_point, max_limit, haplotypes, homo_alen_list = process_locus(locus_key, global_loci_variations, global_read_variations, global_snp_positions, prev_reads, sorted_global_snp_list, maxR, minR, global_loci_info, near_by_loci, sorted_global_ins_rpos_set, Chrom, lstart, lend, ref, log_bool, logger, snpD, prev_locus_end, hp_code, amplicon)
 
         read_seqs = global_loci_variations[locus_key]['read_sequence']
         if category == 1:
@@ -46,10 +56,13 @@ def locus_processor(global_loci_keys, global_loci_ends, global_loci_variations, 
                     homozygous_allele = 0
             else:
                 ALT = '.'
+
+            lower,upper = confidence_interval(homo_alen_list)
             if male:
-                allele_range = f'{min(unique_alen)}-{max(unique_alen)}'
+                allele_range = f'{lower}-{upper}'
             else:
-                allele_range = f'{homozygous_allele}-{homozygous_allele},{min(unique_alen)}-{max(unique_alen)}'
+                allele_range = f'{lower}-{upper},{lower}-{upper}'
+
             vcf_homozygous_writer(ref, Chrom, locus_key, global_loci_info, homozygous_allele, global_loci_variations, len(reads_of_homozygous), out, ALT, log_bool, '.', decomp, hallele_counter, male, allele_range, None)
             genotyped_loci += 1
         elif category == 2:
@@ -87,7 +100,11 @@ def locus_processor(global_loci_keys, global_loci_ends, global_loci_variations, 
                     allele_count[allele_length] = len(hap_reads)
                 else:
                     allele_count[str(allele_length)] = len(hap_reads)
-            allele_range = f'{min(alen_list[0])}-{max(alen_list[0])},{min(alen_list[1])}-{max(alen_list[1])}'
+
+            lower1,upper1 = confidence_interval(alen_list[0])
+            lower2,upper2 = confidence_interval(alen_list[1])
+            allele_range = f'{lower1}-{upper1},{lower2}-{upper2}'
+
             vcf_heterozygous_writer(Chrom, genotypes, lstart, global_loci_variations, lend, allele_count, len(reads_of_homozygous), global_loci_info, ref, out, '.', phased_read, 0, ALT_seqs, log_bool, 'HP', decomp, hallele_counter, allele_range, [None])
             genotyped_loci += 1
         else:
@@ -629,6 +646,9 @@ def mini_cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshol
                 
                 else: # if its wgs mode and didnt covered the repeat than move to next read
                     continue
+
+                # if no repeats are covered by the read
+                if len(loci_coords) == 0: continue
 
                 if passed_loci:
                 

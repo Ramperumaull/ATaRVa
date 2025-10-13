@@ -162,6 +162,7 @@ def vcf_heterozygous_writer(contig, genotypes, locus_start, global_loci_variatio
                 if ALT[0]!='<': alt_seqs.append(ALT)
                 else: alt_seqs.append('')
                 alt_seqs.append(None) # dummy added for ref, to keep the length of alt_seqs as 2
+                allele_range = ','.join(allele_range.split(',')[::-1]) # reverse the allele range to keep the order consistent with GT
         else:
             AC = '1,1'
             GT = '1|2'

@@ -2,12 +2,13 @@ from ATARVA.realignment_utils import *
 import sys, bisect
 # import statistics
 
-def count_alleles(locus_key, read_indices, global_loci_variations, allele_counter, hallele_counter):
+def count_alleles(locus_key, read_indices, global_loci_variations, allele_counter, hallele_counter,alen_list):
     """
     Counts the read distribution for each allele length
     """
     for rindex in read_indices:
         halen, alen = global_loci_variations[locus_key]['read_allele'][rindex]
+        alen_list.append(halen)
 
         try: allele_counter[alen] += 1
         except KeyError: allele_counter[alen] = 1
@@ -76,7 +77,7 @@ def process_locus(locus_key, global_loci_variations, global_read_variations, glo
     if total_reads < minR:
         # coverage of the locus is low
         prev_reads = set(read_indices)
-        return [prev_reads, category, homozygous_allele, reads_of_homozygous, {}, 0, max_limit, haplotypes]
+        return [prev_reads, category, homozygous_allele, reads_of_homozygous, {}, 0, max_limit, haplotypes, []]
     elif total_reads > maxR:
         # coverage of the locus is high
         read_indices = read_indices[:maxR]
@@ -175,8 +176,8 @@ def process_locus(locus_key, global_loci_variations, global_read_variations, glo
     if log_bool: logger.debug(f"{locus_key};Larger_ins={ILR};Partial_ins={PI};Complete_ins={CI}")
     sorted_global_ins_rpos_set |= new_ins_rpos_current_loci
     # recording the counts of each allele length across all reads
-    allele_counter = {};  hallele_counter = {}
-    count_alleles(locus_key, read_indices, global_loci_variations, allele_counter, hallele_counter)
+    allele_counter = {};  hallele_counter = {}; alen_list = []
+    count_alleles(locus_key, read_indices, global_loci_variations, allele_counter, hallele_counter, alen_list)
 
     if not amplicon:
         hap_status = False
@@ -196,7 +197,7 @@ def process_locus(locus_key, global_loci_variations, global_read_variations, glo
             if len(filtered_alleles) == 1 and hallele_counter[filtered_alleles[0]]/total_reads >= 0.75:
                 category = 1 # homozygous
                 homozygous_allele = filtered_alleles[0]
-                reads_of_homozygous = [rindex for rindex in global_loci_variations[locus_key]['read_allele'] if homozygous_allele == global_loci_variations[locus_key]['read_allele'][rindex][0]]
+                # reads_of_homozygous = [rindex for rindex in global_loci_variations[locus_key]['read_allele'] if homozygous_allele == global_loci_variations[locus_key]['read_allele'][rindex][0]]
             else:
                 category = 2 # ambiguous
 
@@ -206,4 +207,4 @@ def process_locus(locus_key, global_loci_variations, global_read_variations, glo
         category = 2 # ambiguous
     
     prev_reads = current_reads.copy()
-    return [prev_reads, category, homozygous_allele, reads_of_homozygous, hallele_counter, 10, max_limit, haplotypes]
+    return [prev_reads, category, homozygous_allele, read_indices, hallele_counter, 10, max_limit, haplotypes, alen_list]

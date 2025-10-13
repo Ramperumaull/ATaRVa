@@ -2,22 +2,20 @@ from ATARVA.snp_utils import haplocluster_reads
 from ATARVA.vcf_writer import *
 from ATARVA.consensus import *
 import numpy as np
-# import statistics
+from scipy import stats
 from sklearn.cluster import KMeans
 import warnings
 from threadpoolctl import threadpool_limits
 from ATARVA.decomp_utils import motif_decomposition
 
-# def non_repeat_length(decomp_seq):
-#     non_repeat_len = 0
-#     split_seq = decomp_seq.split('-')
-#     for i in split_seq:
-#         if '(' in i:
-#             pass
-#         else:
-#             non_repeat_len += len(i)
-#     del split_seq
-#     return non_repeat_len
+def confidence_interval(data):
+    data = np.array(data)
+    mean = np.mean(data)
+    sem = stats.sem(data)
+    if sem==0:
+        return [int(mean), int(mean)]
+    ci = stats.t.interval(0.95, df=len(data)-1, loc=mean, scale=sem)
+    return [round(ci[0]), round(ci[1])]
 
 def alt_sequence(read_seqs, hap_reads, amplicon, motif_size):
     seqs = [seq for seq in [read_seqs[read_id][0] for read_id in hap_reads] if seq!='']
@@ -119,7 +117,9 @@ def length_genotyper(hallele_counter, global_loci_info, global_loci_variations, 
         cidx = cluster_len.index(max( cluster_len ))
         if cluster_len[cidx]>=cutoff:
             mac = haplotypes[cidx]
-            allele_range = f'{min(unique_alen)}-{max(unique_alen)}'
+            mal = alen_c1 if cidx==0 else alen_c2 # major allele length cluster
+            lower,upper = confidence_interval(mal)
+            allele_range = f'{lower}-{upper}'
             ALT, allele_length, decomp_seq, repeativity = alt_sequence(read_seqs, mac, amplicon, motif_size)
             if repeativity:
                 vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, allele_length, global_loci_variations, len(mac), out, ALT, log_bool, 'kmeans', decomp, hallele_counter, True, allele_range, decomp_seq)
@@ -147,22 +147,25 @@ def length_genotyper(hallele_counter, global_loci_info, global_loci_variations, 
             else:
                 allele_count[str(allele_length)] = len(hap_reads)
 
-        allele_range = f'{min(alen_c1)}-{max(alen_c1)},{min(alen_c2)}-{max(alen_c2)}'
+        lower1,upper1 = confidence_interval(alen_c1)
+        lower2,upper2 = confidence_interval(alen_c2)
+        allele_range = f'{lower1}-{upper1},{lower2}-{upper2}'
 
         if all(repeativity_list):
             vcf_heterozygous_writer(contig, genotypes, locus_start, global_loci_variations, locus_end, allele_count, len(read_indices), global_loci_info, ref, out, chosen_snpQ, phased_read, snp_num, ALT_seqs, log_bool, 'kmeans', decomp, hallele_counter, allele_range, decomp_seq_list)
         elif any(repeativity_list):
             if repeativity_list[0]:
-                allele_range = f'{min(alen_c1)}-{max(alen_c1)},{min(unique_alen)}-{max(unique_alen)}'
+                allele_range = f'{lower1}-{upper1},{lower1}-{upper1}'
                 vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, genotypes[0], global_loci_variations, len(haplotypes[0]), out, ALT_seqs[0], log_bool, 'kmeans', decomp, hallele_counter, False, allele_range, decomp_seq_list[0])
             else:
-                allele_range = f'{min(alen_c2)}-{max(alen_c2)},{min(unique_alen)}-{max(unique_alen)}'
+                allele_range = f'{lower2}-{upper2},{lower2}-{upper2}'
                 vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, genotypes[1], global_loci_variations, len(haplotypes[1]), out, ALT_seqs[1], log_bool, 'kmeans', decomp, hallele_counter, False, allele_range, decomp_seq_list[1])
         else:
             return [False, 6]
 
     elif c1!=[] and len(c1)>=cutoff:
-        allele_range = f'{min(alen_c1)}-{max(alen_c1)},{min(unique_alen)}-{max(unique_alen)}'
+        lower1,upper1 = confidence_interval(alen_c1)
+        allele_range = f'{lower1}-{upper1},{lower1}-{upper1}'
         ALT, allele_length, decomp_seq, repeativity = alt_sequence(read_seqs, haplotypes[0], amplicon, motif_size)
         if repeativity:
             vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, allele_length, global_loci_variations, len(haplotypes[0]), out, ALT, log_bool, 'kmeans', decomp, hallele_counter, False, allele_range, decomp_seq)
@@ -170,7 +173,8 @@ def length_genotyper(hallele_counter, global_loci_info, global_loci_variations, 
             return [False, 6]
 
     elif c2!=[] and len(c2)>=cutoff:
-        allele_range = f'{min(alen_c2)}-{max(alen_c2)},{min(unique_alen)}-{max(unique_alen)}'
+        lower2,upper2 = confidence_interval(alen_c2)
+        allele_range = f'{lower2}-{upper2},{lower2}-{upper2}'
         ALT, allele_length, decomp_seq, repeativity = alt_sequence(read_seqs, haplotypes[1] , amplicon, motif_size)
         if repeativity:
             vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, allele_length, global_loci_variations, len(haplotypes[1]), out, ALT, log_bool, 'kmeans', decomp, hallele_counter, False, allele_range, decomp_seq)
@@ -281,7 +285,9 @@ def analyse_genotype(contig, locus_key, global_loci_info,
             allele_count[str(allele_length)] = len(hap_reads)
 
     del read_seqs
-    allele_range = f'{min(alen_list[0])}-{max(alen_list[0])},{min(alen_list[1])}-{max(alen_list[1])}'
+    lower1,upper1 = confidence_interval(alen_list[0])
+    lower2,upper2 = confidence_interval(alen_list[1])
+    allele_range = f'{lower1}-{upper1},{lower2}-{upper2}'
     vcf_heterozygous_writer(contig, genotypes, locus_start, global_loci_variations, locus_end, allele_count, len(read_indices), global_loci_info, ref, out, chosen_snpQ, phased_read, snp_num, ALT_seqs, log_bool, 'SNP', decomp, hallele_counter, allele_range, [None])
     state = True
     return [state, skip_point]
