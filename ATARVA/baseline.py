@@ -9,17 +9,24 @@ from ATARVA.consensus import consensus_seq_poa
 from tqdm import tqdm
 import pysam
 import numpy as np
-from scipy import stats
+from scipy.stats import nbinom
 import logging
 
+nan_value = float('nan')
 def confidence_interval(data):
     data = np.array(data)
     mean = np.mean(data)
-    sem = stats.sem(data)
-    if sem==0:
+    var = np.var(data)
+    if var == 0:
         return [int(mean), int(mean)]
-    ci = stats.t.interval(0.95, df=len(data)-1, loc=mean, scale=sem)
-    return [round(ci[0]), round(ci[1])]
+    n = (mean**2)/((var**2) - mean) # number of success
+    p = mean/(var**2) # prob of single success
+    ci = nbinom.interval(0.95, n, p, loc=0)
+
+    if nan_value in ci:
+        return [int(mean), int(mean)]
+    else:
+        return [round(ci[0]), round(ci[1])]
 
 def locus_processor(global_loci_keys, global_loci_ends, global_loci_variations, global_read_variations, global_snp_positions, prev_reads, sorted_global_snp_list, maxR, minR, ref, Chrom, global_loci_info, out, snpQ, snpC, snpD, snpR, phasingR, tbx, flank, sorted_global_ins_rpos_set, log_bool, logger, male, prev_locus_end, decomp, hp_code, amplicon):
 
