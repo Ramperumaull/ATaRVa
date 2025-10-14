@@ -2,7 +2,7 @@ from ATARVA.snp_utils import haplocluster_reads
 from ATARVA.vcf_writer import *
 from ATARVA.consensus import *
 import numpy as np
-from scipy.stats import nbinom
+
 from sklearn.cluster import KMeans
 import warnings
 from threadpoolctl import threadpool_limits
@@ -11,18 +11,8 @@ from ATARVA.decomp_utils import motif_decomposition
 
 def confidence_interval(data):
     data = np.array(data)
-    mean = np.mean(data)
-    var = np.var(data)
-    if var == 0:
-        return [int(mean), int(mean)]
-    n = (mean**2)/((var**2) - mean) # number of success
-    p = mean/(var**2) # prob of single success
-    ci = nbinom.interval(0.95, n, p, loc=0)
-
-    if np.any(np.isnan(ci)):
-        return [int(mean), int(mean)]
-    else:
-        return [round(ci[0]), round(ci[1])]
+    ci = np.percentile(data, [2.5, 97.5])
+    return [round(ci[0]), round(ci[1])]
 
 def alt_sequence(read_seqs, hap_reads, amplicon, motif_size):
     seqs = [seq for seq in [read_seqs[read_id][0] for read_id in hap_reads] if seq!='']
