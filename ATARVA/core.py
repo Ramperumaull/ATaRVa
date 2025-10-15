@@ -34,11 +34,11 @@ def parse_args():
     optional.add_argument('-q', '--map-qual', type=int, metavar='<INT>', default=5, help='minimum mapping quality of the reads to be considered. [default: 5]')
     optional.add_argument('--contigs', nargs='+', help='contigs to get genotyped [chr1 chr12 chr22 ..]. If not mentioned every contigs in the region file will be genotyped.')
     optional.add_argument('--min-reads', type=int, metavar='<INT>', default=10, help='minimum read coverage after quality cutoff at a locus to be genotyped. [default: 10]')
-    optional.add_argument('--max-reads', type=int, metavar='<INT>', default=100, help='maximum number of reads to be used for genotyping a locus. [default: 100]')
+    optional.add_argument('--max-reads', type=int, metavar='<INT>', default=None, help='maximum number of reads to be used for genotyping a locus. [default: 100]')
     optional.add_argument('--snp-dist', type=int, metavar='<INT>', default=3000, help='maximum distance of the SNP from repeat region to be considered for phasing. [default: 3000]')
     optional.add_argument('--snp-count', type=int, metavar='<INT>', default=3, help='number of SNPs to be considered for phasing (minimum value = 1). [default: 3]')
     optional.add_argument('--snp-qual', type=int, metavar='<INT>', default=13, help='minimum basecall quality at the SNP position to be considered for phasing. [default: 13]')
-    optional.add_argument('--flank', type=int, metavar='<INT>', default=10, help='length of the flanking region (in base pairs) to search for insertion with a repeat in it. [default: 10]')
+    optional.add_argument('--flank', type=int, metavar='<INT>', default=None, help='length of the flanking region (in base pairs) to search for insertion with a repeat in it. [default: 10]')
     optional.add_argument('--snp-read', type=float, metavar='<FLOAT>', default=0.2, help='a positive float as the minimum fraction of snp\'s read contribution to be used for phasing. [default: 0.25]')
     optional.add_argument('--phasing-read', type=float, metavar='<FLOAT>', default=0.4, help='a positive float as the minimum fraction of total read contribution from the phased read clusters. [default: 0.4]')
     optional.add_argument('-o',  '--vcf', type=str, metavar='<FILE>', default='', help='name of the output file, output is in vcf format. [default: sys.stdout]')
@@ -46,7 +46,7 @@ def parse_args():
     optional.add_argument('-t',  '--threads', type=int, metavar='<INT>', default=1, help='number of threads. [default: 1]')
     optional.add_argument('--haplotag', type=str, metavar='<STR>', default=None, help='use haplotagged information for phasing. eg: [HP]. [default: None]')
     optional.add_argument('--decompose', action='store_true', help="write the motif-decomposed sequence to the vcf. [default: False]")
-    optional.add_argument('--amplicon', action='store_true', help="genotype mode for targeted-sequenced samples. [default: False]")
+    optional.add_argument('--amplicon', action='store_true', help="genotype mode for targeted-sequenced samples. In this mode, the default values for `max-reads` and `flank` values are 1000 and 20 respectively. [default: False]")
     optional.add_argument('-log', '--debug_mode', action='store_true', help="write the debug messages to log file. [default: False]")
     optional.add_argument('-v', '--version', action='version', version=f'ATaRVa version {__version__}')
     
@@ -165,6 +165,15 @@ def main():
     else:
         karyotype_list = [i=='XY' for i in args.karyotype]
 
+    maxR = args.max_reads
+    flank_length = args.flank
+    if args.amplicon:
+        if args.max_reads is None: maxR = 1000
+        if args.flank is None: flank_length = 20
+    else:
+        if maxR is None: maxR = 100
+        if flank_length is None: flank_length = 10
+
     threads = args.threads
     split_point = total_loci // threads
     if split_point == 0:
@@ -241,8 +250,6 @@ def main():
         elif mbso or (out_file[-1]=='/'):
             out_file = out_file + '_' + ".".join(each_bam.split("/")[-1].split('.')[:-1])
 
-        
-
         if threads > 1:
             thread_pool = list()
             # initializing threads
@@ -251,11 +258,11 @@ def main():
                 if srs:
                     thread_x = Process(
                         target = mini_cooper,
-                        args = (each_bam, args.regions, args.fasta, aln_format, contig, args.map_qual, out_file, args.snp_qual, args.snp_count, args.snp_dist, args.max_reads, args.min_reads, args.snp_read, args.phasing_read, tidx, args.flank, args.debug_mode, karyotype_list[kidx], args.decompose, args.haplotag, args.amplicon))
+                        args = (each_bam, args.regions, args.fasta, aln_format, contig, args.map_qual, out_file, args.snp_qual, args.snp_count, args.snp_dist, maxR, args.min_reads, args.snp_read, args.phasing_read, tidx, flank_length, args.debug_mode, karyotype_list[kidx], args.decompose, args.haplotag, args.amplicon))
                 else:
                     thread_x = Process(
                         target = cooper,
-                        args = (each_bam, args.regions, args.fasta, aln_format, contig, args.map_qual, out_file, args.snp_qual, args.snp_count, args.snp_dist, args.max_reads, args.min_reads, args.snp_read, args.phasing_read, tidx, args.flank, args.debug_mode, karyotype_list[kidx], args.decompose, args.haplotag, args.amplicon))
+                        args = (each_bam, args.regions, args.fasta, aln_format, contig, args.map_qual, out_file, args.snp_qual, args.snp_count, args.snp_dist, maxR, args.min_reads, args.snp_read, args.phasing_read, tidx, flank_length, args.debug_mode, karyotype_list[kidx], args.decompose, args.haplotag, args.amplicon))
                 thread_x.start()
                 thread_pool.append(thread_x)
 
@@ -295,9 +302,9 @@ def main():
                 out_log.close()
         else:
             if srs:
-                mini_cooper(each_bam, args.regions, args.fasta, aln_format, fetcher[0], args.map_qual, out_file, args.snp_qual, args.snp_count, args.snp_dist, args.max_reads, args.min_reads, args.snp_read, args.phasing_read, -1, args.flank, args.debug_mode, karyotype_list[kidx], args.decompose, args.haplotag, args.amplicon)
+                mini_cooper(each_bam, args.regions, args.fasta, aln_format, fetcher[0], args.map_qual, out_file, args.snp_qual, args.snp_count, args.snp_dist, maxR, args.min_reads, args.snp_read, args.phasing_read, -1, flank_length, args.debug_mode, karyotype_list[kidx], args.decompose, args.haplotag, args.amplicon)
             else:
-                cooper(each_bam, args.regions, args.fasta, aln_format, fetcher[0], args.map_qual, out_file, args.snp_qual, args.snp_count, args.snp_dist, args.max_reads, args.min_reads, args.snp_read, args.phasing_read, -1, args.flank, args.debug_mode, karyotype_list[kidx], args.decompose, args.haplotag, args.amplicon)
+                cooper(each_bam, args.regions, args.fasta, aln_format, fetcher[0], args.map_qual, out_file, args.snp_qual, args.snp_count, args.snp_dist, maxR, args.min_reads, args.snp_read, args.phasing_read, -1, flank_length, args.debug_mode, karyotype_list[kidx], args.decompose, args.haplotag, args.amplicon)
 
     time_now = ti.default_timer()
     sys.stderr.write('CPU time: {} seconds\n'.format(time_now - start_time))

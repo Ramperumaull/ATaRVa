@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ATaRVa"
-version = "0.3.0"
+version = "0.3.1"
 description = "Analysis of Tandem Repeats Variations"
 readme = "README.md"
-license = { text = "MIT" }
+license = "MIT"
 authors = [
     { name = "Divya Tej Sowpati", email = "tej@ccmb.res.in" }
 ]
@@ -25,7 +25,9 @@ dependencies = [
     'scipy>=1.12.0',
     'threadpoolctl>=3.3.0',
     'tqdm>=4.66.1',
-    'bitarray>=3.0.0'
+    'bitarray>=3.0.0',
+    'regex>=2025.9.1',
+    'hdbscan>=0.8.40'
 ]
 classifiers = [
     'Development Status :: 4 - Beta',
