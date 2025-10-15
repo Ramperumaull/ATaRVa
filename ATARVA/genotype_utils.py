@@ -2,11 +2,13 @@ from ATARVA.snp_utils import haplocluster_reads
 from ATARVA.vcf_writer import *
 from ATARVA.consensus import *
 import numpy as np
+
 from sklearn.cluster import KMeans
 import hdbscan
 import warnings
 from threadpoolctl import threadpool_limits
 from ATARVA.decomp_utils import motif_decomposition
+import sys
 
 def dbscan(data, hap_reads):
     data = np.array(data).reshape(-1, 1)
@@ -18,22 +20,28 @@ def dbscan(data, hap_reads):
     unique_labels = set(cluster_labels)
     
     if len(unique_labels)==1: # cluster case = (0), (-1)
-        return [False,None] # proceed with Kmeans
+        return [False,None,None] # proceed with Kmeans
         
     elif (len(unique_labels)==2) and (-1 in unique_labels): # cluster case = (0,-1)
-        return [False,None] # proceed with Kmeans
+        return [False,None,None] # proceed with Kmeans
         
     elif len(unique_labels)>=2: # cluster case = (0,1), (0,1,-1), (0,1,2)
         main_label = unique_labels-{-1}
+
         main_clusters = {}
         
         for label in main_label:
             c_label = [i for i, x in enumerate(cluster_labels) if x == label]
             alen = [data[i][0] for i in c_label]
-            main_clusters[len(c_label)] = [c_label, alen]
+            if len(c_label) in main_clusters:
+                main_clusters[len(c_label)+1] = [c_label, alen]
+            else:
+                main_clusters[len(c_label)] = [c_label, alen]
             
         top2_clus_idx = [v for _,v in sorted(main_clusters.items(), reverse=True)[:2]] # getting top 2 cluster with more support
+
         new_haplotypes = [[hap_reads[idx] for idx in top2_clus_idx[0][0]], [hap_reads[idx] for idx in top2_clus_idx[1][0]]] # getting respective read ids
+
         new_alen = [top2_clus_idx[0][1], top2_clus_idx[1][1]]
         
         return [True, new_haplotypes, new_alen]
@@ -90,8 +98,7 @@ def hetero_vcf_writer(haplotypes, read_seqs, amplicon, motif_size, new_alen, con
         return [False, 6]
     
     return [True, 10]
-
-
+    
 def confidence_interval(data):
     data = np.array(data)
     ci = np.percentile(data, [2.5, 97.5])
@@ -122,15 +129,9 @@ def length_genotyper(hallele_counter, global_loci_info, global_loci_variations, 
     unique_alen = list(hallele_counter.keys())
     motif_size = int(float(global_loci_info[locus_key][4])) # <= 10 # boolean for motif-decomp check
     
-    # if not amplicon:
-    #     alen_with_1read = [item[0] for item in hallele_counter.items() if item[1]==1] # allele with 1 read contribution
-    #     # if more than 10% of the reads support, empty the alen_with_1read list
-    #     # if (len(alen_with_1read) / len(read_indices)) >= 0.15:
-    #     #     alen_with_1read = []
-    # else:
-    #     alen_with_1read = []
+
     alen_with_1read = [item[0] for item in hallele_counter.items() if item[1]==1] # allele with 1 read contribution
-    # alen_with_gread = set(unique_alen) - set(alen_with_1read) # allele with more than 1 read contribution
+
     main_read_id = []
     alen_data = []
     
@@ -185,6 +186,7 @@ def length_genotyper(hallele_counter, global_loci_info, global_loci_variations, 
 
             if not br:
                 cutoff = max(0.05, len(alen_x) / len(alen_data)) * len(alen_data) # min 5 % of total reads should be in the cluster
+                cutoff = max(2, cutoff) # min 2 reads should be there in cluster if WGS
                 if amplicon:
                     cutoff = max(5, cutoff) # min 5 reads should be in the cluster if amplicon
 
@@ -210,9 +212,10 @@ def length_genotyper(hallele_counter, global_loci_info, global_loci_variations, 
                 return [False, 6]
     
     elif (c1!=[] and len(c1)>=cutoff) and (c2!=[] and len(c2)>=cutoff):
-        
+
         bool_state, category = hetero_vcf_writer(haplotypes, read_seqs, amplicon, motif_size, [alen_c1, alen_c2], contig, locus_key, read_indices, global_loci_info, global_loci_variations, locus_start, locus_end, ref, out, log_bool, decomp, hallele_counter)
         return [bool_state, category]
+
 
     elif c1!=[] and len(c1)>=cutoff:
         if amplicon:
@@ -227,7 +230,6 @@ def length_genotyper(hallele_counter, global_loci_info, global_loci_variations, 
             bool_state, category = homo_vcf_writer(alen_c1, read_seqs, haplotypes[0], amplicon, motif_size, ref, contig, locus_key, global_loci_info, global_loci_variations, out, log_bool, decomp, hallele_counter)
             return [bool_state, category]
 
-
     elif c2!=[] and len(c2)>=cutoff:
         if amplicon:
             db_status, new_hap, new_alen = dbscan(alen_c2, haplotypes[1])
@@ -239,7 +241,7 @@ def length_genotyper(hallele_counter, global_loci_info, global_loci_variations, 
                 return [bool_state, category]
         else:
             bool_state, category = homo_vcf_writer(alen_c2, read_seqs, haplotypes[1], amplicon, motif_size, ref, contig, locus_key, global_loci_info, global_loci_variations, out, log_bool, decomp, hallele_counter)
-
+            return [bool_state, category]
         
     else:
         return [False, 6] # write allele distribution with only one read supporting to it in vcf
