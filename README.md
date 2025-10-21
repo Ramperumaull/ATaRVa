@@ -315,9 +315,7 @@ In all the above examples, the output of ATaRVa is saved to input.vcf unless -o 
 If you find ATaRVa useful for your research, please cite it as follows:
 
 ATaRVa: Analysis of Tandem Repeat Variation from Long Read Sequencing data  
-*Akshay Kumar Avvaru, Divya Tej Sowpati*  
-  
-doi:
+*Akshay Kumar Avvaru, Divya Tej Sowpati* 
 
 ## Contact
 For queries or suggestions, please contact:
