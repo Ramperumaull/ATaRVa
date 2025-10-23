@@ -345,9 +345,11 @@ def refine_decomposition(split_seq, bed_motif, seq_len):
             count = int(i[end_point+1:])
             tmp_motif = i[1:end_point]
             motif_len = len(tmp_motif)
-            if motif_len <= bed_motif: # skip if the current motif is already smaller than the bed motif
+            if len(set(tmp_motif)) == 1:
+                new_seq_list.append(f'({tmp_motif[0]}){motif_len*count}')
+            elif motif_len <= bed_motif: # skip if the current motif is already smaller than the bed motif
                 new_seq_list.append(i)
-            if (motif_len!=1) & (motif_len>bed_motif) & (motif_len%bed_motif == 0): # procedd only for bigger motifs and divisible by bed motif
+            elif (motif_len!=1) & (motif_len>bed_motif) & (motif_len%bed_motif == 0): # procedd only for bigger motifs and divisible by bed motif
                 for div in divisor_dict[motif_len]:
                     check_motif = tmp_motif[: div]
                     e = 0
@@ -360,6 +362,8 @@ def refine_decomposition(split_seq, bed_motif, seq_len):
                         break
                 else:
                     new_seq_list.append(i)
+            else:
+                new_seq_list.append(i)
                     
         else:
             new_seq_list.append(i)

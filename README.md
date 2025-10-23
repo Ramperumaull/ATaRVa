@@ -1,5 +1,5 @@
 # ATaRVa - a tandem repeat genotyper
-![Badge-PyPI](https://img.shields.io/badge/PyPI-v0.3.1-brightgreen)
+![Badge-PyPI](https://img.shields.io/badge/PyPI-v0.4.0-brightgreen)
 ![Badge-License](https://img.shields.io/badge/License-MIT-blue)
 
 <p align=center>
@@ -297,7 +297,8 @@ The `FORMAT` fields and their values are provided in the last two columns of the
 | SD | Number of supporting reads for each alleles |
 | DP | Number of the supporting reads for the repeat locus |
 | SN | Number of SNPs used for phasing |
-| SQ | Phred-scale qualities of the SNPs used for phasing |  
+| SQ | Phred-scale qualities of the SNPs used for phasing |
+| MM | Mean methylation level for each allele |
 | DS | Motif decomposed sequence of the alternate alleles |
 
 **NOTE: Loci missing in the VCF either have no reads mapped to them, contain reads that do not fully enclose the repeat region, or have reads with low mapping quality (mapQ).**
@@ -382,10 +383,11 @@ $ docker run -i -t --rm -v /path_of_necessary_files/:/folder_name atarva:latest 
 In all the above examples, the output of ATaRVa is saved to input.vcf unless -o is specified.
 
 ## Changelog
-### v0.3.1
-* Added checkpoint in amplicon mode for non-repeatedness in ALT sequence
+### v0.4.0
+* Added checkpoint in amplicon mode for non-repeatedness in ALT sequence and implemented DBSCAN clustering
 * Refined Motif-decomposition sequence for motif breaks
 * Added `AR` tag in VCF-SAMPLE column for allele range
+* Added `MM` tag in VCF_SAMPLE column for mean methylation level
 
 ### v0.3.0
 * Added `--amplicon` mode for targeted sequencing data

@@ -93,7 +93,7 @@ def process_locus(locus_key, global_loci_variations, global_read_variations, glo
     ILR=0;PI=0;CI=0;
     for each_read in read_indices:
 
-        query,rep_range,ins_left,ins_right, left_rpos, right_rpos = locus_read_seq[each_read] # fetching repeat seq with flanks, correct start end position and insertion coordinates
+        query,rep_range,ins_left,ins_right, left_rpos, right_rpos, read_repeat_start, read_repeat_end = locus_read_seq[each_read] # fetching repeat seq with flanks, correct start end position and insertion coordinates
 
         new_start,new_end = rep_range # new coordinates same as correct corrdinates
         # if new_end-new_start != locus_read_allele[each_read][0]:
@@ -172,6 +172,28 @@ def process_locus(locus_key, global_loci_variations, global_read_variations, glo
 
         locus_read_seq[each_read][0] = query[new_start:new_end] # over-writing the query seq with modified seq with/without ins
         locus_read_allele[each_read][0] = new_end-new_start # over-writing the allele length after modification
+
+
+        # Extracting the methylation probability for each read at the locus
+        adj_start = read_repeat_start + ( new_start - rep_range[0] ) # adjusting the start position with respect to original read coordinates by adding the diff(after local-alignment)
+        adj_end = read_repeat_end + ( new_end - rep_range[1] ) # adjusting the start position with respect to original read coordinates by adding the diff(after local-alignment)
+
+        read_mod_bases = global_read_variations[each_read]['meth'] # modified_bases data
+        locus_read_meth = global_loci_variations[locus_key]['read_meth'] # read_wise methylation data at the locus
+
+        # calculating average methylation probability at the locus for each read
+        meth_count = 0
+        meth_qual = 0
+        for each_pos in read_mod_bases:
+            if adj_start <= each_pos[0] <= adj_end:
+                meth_count += 1
+                meth_qual += each_pos[1]/255
+        if meth_count > 0:
+            avg_qual = meth_qual/meth_count
+            locus_read_meth[each_read] = round(avg_qual, 2)
+        else:
+            locus_read_meth[each_read] = None
+                
 
     if log_bool: logger.debug(f"{locus_key};Larger_ins={ILR};Partial_ins={PI};Complete_ins={CI}")
     sorted_global_ins_rpos_set |= new_ins_rpos_current_loci

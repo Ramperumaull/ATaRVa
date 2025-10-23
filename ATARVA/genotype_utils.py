@@ -1,63 +1,25 @@
 from ATARVA.snp_utils import haplocluster_reads
 from ATARVA.vcf_writer import *
-from ATARVA.consensus import *
-import numpy as np
+from ATARVA.sub_operation_utils import *
 
+import numpy as np
 from sklearn.cluster import KMeans
-import hdbscan
 import warnings
 from threadpoolctl import threadpool_limits
-from ATARVA.decomp_utils import motif_decomposition
-import sys
-
-def dbscan(data, hap_reads):
-    data = np.array(data).reshape(-1, 1)
-    min_samples = round(0.2*len(data)) # min 20% of the data
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", category=FutureWarning)
-        clusterer = hdbscan.HDBSCAN(min_cluster_size=min_samples)
-        cluster_labels = clusterer.fit_predict(data)
-    unique_labels = set(cluster_labels)
-    
-    if len(unique_labels)==1: # cluster case = (0), (-1)
-        return [False,None,None] # proceed with Kmeans
-        
-    elif (len(unique_labels)==2) and (-1 in unique_labels): # cluster case = (0,-1)
-        return [False,None,None] # proceed with Kmeans
-        
-    elif len(unique_labels)>=2: # cluster case = (0,1), (0,1,-1), (0,1,2)
-        main_label = unique_labels-{-1}
-
-        main_clusters = {}
-        
-        for label in main_label:
-            c_label = [i for i, x in enumerate(cluster_labels) if x == label]
-            alen = [data[i][0] for i in c_label]
-            if len(c_label) in main_clusters:
-                main_clusters[len(c_label)+1] = [c_label, alen]
-            else:
-                main_clusters[len(c_label)] = [c_label, alen]
-            
-        top2_clus_idx = [v for _,v in sorted(main_clusters.items(), reverse=True)[:2]] # getting top 2 cluster with more support
-
-        new_haplotypes = [[hap_reads[idx] for idx in top2_clus_idx[0][0]], [hap_reads[idx] for idx in top2_clus_idx[1][0]]] # getting respective read ids
-
-        new_alen = [top2_clus_idx[0][1], top2_clus_idx[1][1]]
-        
-        return [True, new_haplotypes, new_alen]
-    
-def homo_vcf_writer(alen, read_seqs, haplotypes, amplicon, motif_size, ref, contig, locus_key, global_loci_info, global_loci_variations, out, log_bool, decomp, hallele_counter):
+   
+def homo_vcf_call(alen, read_seqs, haplotypes, amplicon, motif_size, ref, contig, locus_key, global_loci_info, global_loci_variations, out, log_bool, decomp, hallele_counter):
 
     lower1,upper1 = confidence_interval(alen)
     allele_range = f'{lower1}-{upper1},{lower1}-{upper1}'
     ALT, allele_length, decomp_seq, repeativity = alt_sequence(read_seqs, haplotypes, amplicon, motif_size)
     if repeativity:
-        vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, allele_length, global_loci_variations, len(haplotypes), out, ALT, log_bool, 'kmeans', decomp, hallele_counter, False, allele_range, decomp_seq)
+        meth_prob = methylation_calc(haplotypes, global_loci_variations, locus_key)
+        vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, allele_length, global_loci_variations, len(haplotypes), out, ALT, log_bool, 'kmeans', decomp, hallele_counter, False, allele_range, decomp_seq, meth_prob)
     else:
         return [False, 6]
     return [True, 10]
 
-def hetero_vcf_writer(haplotypes, read_seqs, amplicon, motif_size, new_alen, contig, locus_key, read_indices, global_loci_info, global_loci_variations, locus_start, locus_end, ref, out, log_bool, decomp, hallele_counter):
+def hetero_vcf_call(haplotypes, read_seqs, amplicon, motif_size, new_alen, contig, locus_key, read_indices, global_loci_info, global_loci_variations, locus_start, locus_end, ref, out, log_bool, decomp, hallele_counter):
 
     alen_c1 = new_alen[0]
     alen_c2 = new_alen[1]
@@ -70,6 +32,7 @@ def hetero_vcf_writer(haplotypes, read_seqs, amplicon, motif_size, new_alen, con
     ALT_seqs = []
     repeativity_list = []
     decomp_seq_list = []
+    meth_prob = []
     for hap_reads in haplotypes:
         ALT, allele_length, decomp_seq, repeativity = alt_sequence(read_seqs, hap_reads, amplicon, motif_size)
         repeativity_list.append(repeativity)
@@ -81,46 +44,26 @@ def hetero_vcf_writer(haplotypes, read_seqs, amplicon, motif_size, new_alen, con
         else:
             allele_count[str(allele_length)] = len(hap_reads)
 
+        meth_prob.append(methylation_calc(hap_reads, global_loci_variations, locus_key))
+
     lower1,upper1 = confidence_interval(alen_c1)
     lower2,upper2 = confidence_interval(alen_c2)
     allele_range = f'{lower1}-{upper1},{lower2}-{upper2}'
 
     if all(repeativity_list):
-        vcf_heterozygous_writer(contig, genotypes, locus_start, global_loci_variations, locus_end, allele_count, len(read_indices), global_loci_info, ref, out, chosen_snpQ, phased_read, snp_num, ALT_seqs, log_bool, 'kmeans', decomp, hallele_counter, allele_range, decomp_seq_list)
+        vcf_heterozygous_writer(contig, genotypes, locus_start, global_loci_variations, locus_end, allele_count, len(read_indices), global_loci_info, ref, out, chosen_snpQ, phased_read, snp_num, ALT_seqs, log_bool, 'kmeans', decomp, hallele_counter, allele_range, decomp_seq_list, meth_prob)
     elif any(repeativity_list):
         if repeativity_list[0]:
             allele_range = f'{lower1}-{upper1},{lower1}-{upper1}'
-            vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, genotypes[0], global_loci_variations, len(haplotypes[0]), out, ALT_seqs[0], log_bool, 'kmeans', decomp, hallele_counter, False, allele_range, decomp_seq_list[0])
+            vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, genotypes[0], global_loci_variations, len(haplotypes[0]), out, ALT_seqs[0], log_bool, 'kmeans', decomp, hallele_counter, False, allele_range, decomp_seq_list[0], meth_prob[0])
         else:
             allele_range = f'{lower2}-{upper2},{lower2}-{upper2}'
-            vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, genotypes[1], global_loci_variations, len(haplotypes[1]), out, ALT_seqs[1], log_bool, 'kmeans', decomp, hallele_counter, False, allele_range, decomp_seq_list[1])
+            vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, genotypes[1], global_loci_variations, len(haplotypes[1]), out, ALT_seqs[1], log_bool, 'kmeans', decomp, hallele_counter, False, allele_range, decomp_seq_list[1], meth_prob[1])
     else:
         return [False, 6]
     
     return [True, 10]
-    
-def confidence_interval(data):
-    data = np.array(data)
-    ci = np.percentile(data, [2.5, 97.5])
-    return [round(ci[0]), round(ci[1])]
 
-def alt_sequence(read_seqs, hap_reads, amplicon, motif_size):
-    seqs = [seq for seq in [read_seqs[read_id][0] for read_id in hap_reads] if seq!='']
-    if len(seqs)>0:
-        ALT = consensus_seq_poa(seqs)
-        allele_length = len(ALT)
-    else:
-        ALT = '<DEL>'
-        allele_length = 0
-
-    decomp_seq = ''
-    repeativity = True
-    if amplicon and allele_length and (motif_size<=10):
-        decomp_seq, nonrep_percent = motif_decomposition(ALT, motif_size)
-        # nonrep_percent = non_repeat_length(decomp_seq)/len(ALT)
-        if nonrep_percent > 0.30: # if more than 30% of the sequence is non-repeat, repeativity = False
-            repeativity = False
-    return [ALT, allele_length, decomp_seq, repeativity]
     
 def length_genotyper(hallele_counter, global_loci_info, global_loci_variations, locus_key, read_indices, contig, locus_start, locus_end, ref, out, male, log_bool, decomp, read_seqs, amplicon):
 
@@ -206,14 +149,15 @@ def length_genotyper(hallele_counter, global_loci_info, global_loci_variations, 
             lower,upper = confidence_interval(mal)
             allele_range = f'{lower}-{upper}'
             ALT, allele_length, decomp_seq, repeativity = alt_sequence(read_seqs, mac, amplicon, motif_size)
+            meth_prob = methylation_calc(mac, global_loci_variations, locus_key)
             if repeativity:
-                vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, allele_length, global_loci_variations, len(mac), out, ALT, log_bool, 'kmeans', decomp, hallele_counter, True, allele_range, decomp_seq)
+                vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, allele_length, global_loci_variations, len(mac), out, ALT, log_bool, 'kmeans', decomp, hallele_counter, True, allele_range, decomp_seq, meth_prob)
             else:
                 return [False, 6]
     
     elif (c1!=[] and len(c1)>=cutoff) and (c2!=[] and len(c2)>=cutoff):
 
-        bool_state, category = hetero_vcf_writer(haplotypes, read_seqs, amplicon, motif_size, [alen_c1, alen_c2], contig, locus_key, read_indices, global_loci_info, global_loci_variations, locus_start, locus_end, ref, out, log_bool, decomp, hallele_counter)
+        bool_state, category = hetero_vcf_call(haplotypes, read_seqs, amplicon, motif_size, [alen_c1, alen_c2], contig, locus_key, read_indices, global_loci_info, global_loci_variations, locus_start, locus_end, ref, out, log_bool, decomp, hallele_counter)
         return [bool_state, category]
 
 
@@ -221,26 +165,26 @@ def length_genotyper(hallele_counter, global_loci_info, global_loci_variations, 
         if amplicon:
             db_status, new_hap, new_alen = dbscan(alen_c1, haplotypes[0])
             if db_status:
-                bool_state, category = hetero_vcf_writer(new_hap, read_seqs, amplicon, motif_size, new_alen, contig, locus_key, read_indices, global_loci_info, global_loci_variations, locus_start, locus_end, ref, out, log_bool, decomp, hallele_counter)
+                bool_state, category = hetero_vcf_call(new_hap, read_seqs, amplicon, motif_size, new_alen, contig, locus_key, read_indices, global_loci_info, global_loci_variations, locus_start, locus_end, ref, out, log_bool, decomp, hallele_counter)
                 return [bool_state, category]
             else:
-                bool_state, category = homo_vcf_writer(alen_c1, read_seqs, haplotypes[0], amplicon, motif_size, ref, contig, locus_key, global_loci_info, global_loci_variations, out, log_bool, decomp, hallele_counter)
+                bool_state, category = homo_vcf_call(alen_c1, read_seqs, haplotypes[0], amplicon, motif_size, ref, contig, locus_key, global_loci_info, global_loci_variations, out, log_bool, decomp, hallele_counter)
                 return [bool_state, category]
         else:
-            bool_state, category = homo_vcf_writer(alen_c1, read_seqs, haplotypes[0], amplicon, motif_size, ref, contig, locus_key, global_loci_info, global_loci_variations, out, log_bool, decomp, hallele_counter)
+            bool_state, category = homo_vcf_call(alen_c1, read_seqs, haplotypes[0], amplicon, motif_size, ref, contig, locus_key, global_loci_info, global_loci_variations, out, log_bool, decomp, hallele_counter)
             return [bool_state, category]
 
     elif c2!=[] and len(c2)>=cutoff:
         if amplicon:
             db_status, new_hap, new_alen = dbscan(alen_c2, haplotypes[1])
             if db_status:
-                bool_state, category = hetero_vcf_writer(new_hap, read_seqs, amplicon, motif_size, new_alen, contig, locus_key, read_indices, global_loci_info, global_loci_variations, locus_start, locus_end, ref, out, log_bool, decomp, hallele_counter)
+                bool_state, category = hetero_vcf_call(new_hap, read_seqs, amplicon, motif_size, new_alen, contig, locus_key, read_indices, global_loci_info, global_loci_variations, locus_start, locus_end, ref, out, log_bool, decomp, hallele_counter)
                 return [bool_state, category]
             else:
-                bool_state, category = homo_vcf_writer(alen_c2, read_seqs, haplotypes[1], amplicon, motif_size, ref, contig, locus_key, global_loci_info, global_loci_variations, out, log_bool, decomp, hallele_counter)
+                bool_state, category = homo_vcf_call(alen_c2, read_seqs, haplotypes[1], amplicon, motif_size, ref, contig, locus_key, global_loci_info, global_loci_variations, out, log_bool, decomp, hallele_counter)
                 return [bool_state, category]
         else:
-            bool_state, category = homo_vcf_writer(alen_c2, read_seqs, haplotypes[1], amplicon, motif_size, ref, contig, locus_key, global_loci_info, global_loci_variations, out, log_bool, decomp, hallele_counter)
+            bool_state, category = homo_vcf_call(alen_c2, read_seqs, haplotypes[1], amplicon, motif_size, ref, contig, locus_key, global_loci_info, global_loci_variations, out, log_bool, decomp, hallele_counter)
             return [bool_state, category]
         
     else:
@@ -336,6 +280,7 @@ def analyse_genotype(contig, locus_key, global_loci_info,
     allele_count = {}
     ALT_seqs = []
     alen_list = []
+    meth_prob = []
     for hap_reads in haplotypes:
         ALT, allele_length,_,_ = alt_sequence(read_seqs, hap_reads, False, motif_size)
         alen_list.append([len(read_seqs[read_id][0]) for read_id in hap_reads])
@@ -346,11 +291,13 @@ def analyse_genotype(contig, locus_key, global_loci_info,
         else:
             allele_count[str(allele_length)] = len(hap_reads)
 
+        meth_prob.append(methylation_calc(hap_reads, global_loci_variations, locus_key))
+
     del read_seqs
     lower1,upper1 = confidence_interval(alen_list[0])
     lower2,upper2 = confidence_interval(alen_list[1])
     allele_range = f'{lower1}-{upper1},{lower2}-{upper2}'
-    vcf_heterozygous_writer(contig, genotypes, locus_start, global_loci_variations, locus_end, allele_count, len(read_indices), global_loci_info, ref, out, chosen_snpQ, phased_read, snp_num, ALT_seqs, log_bool, 'SNP', decomp, hallele_counter, allele_range, [None])
+    vcf_heterozygous_writer(contig, genotypes, locus_start, global_loci_variations, locus_end, allele_count, len(read_indices), global_loci_info, ref, out, chosen_snpQ, phased_read, snp_num, ALT_seqs, log_bool, 'SNP', decomp, hallele_counter, allele_range, [None], meth_prob)
     state = True
     return [state, skip_point]
     

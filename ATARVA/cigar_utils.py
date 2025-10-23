@@ -146,6 +146,8 @@ def parse_cigar_tag(read_index, cigar_tuples, read_start, loci_keys, loci_coords
             MD_tag = read.get_tag('MD')
             parse_mdtag(MD_tag, qpos, read_start, global_read_variations, global_snp_positions, read_index, read_quality, read_sequence, sorted_global_snp_list, insertion_point, loci_coords, male, hp)
 
+    tot_loc = len(loci_keys) - 1 # 0-based counting
+    meth_start = None; meth_end = None # repeat sequence coordinates in the read for meth-calc
     for idx,each_key in enumerate(loci_keys):
 
         if amp_left_flank_list:
@@ -165,11 +167,18 @@ def parse_cigar_tag(read_index, cigar_tuples, read_start, loci_keys, loci_coords
                 pass
             
         s_pos = locus_qpos_range[idx][0]
+        if idx==0:
+            meth_start = s_pos
         e_pos = locus_qpos_range[idx][1]
+        if idx==tot_loc:
+            meth_end = e_pos
+
         loci_flank_qpos_range[idx][0] = loci_flank_qpos_range[idx][0] - s_pos
         loci_flank_qpos_range[idx][1] = loci_flank_qpos_range[idx][1] - s_pos
         ins_left = [(each_tuple[0]-s_pos, each_tuple[1]-s_pos) for each_tuple in out_insertion_qpos_ranges_left[idx]]
         ins_right = [(each_tuple[0]-s_pos, each_tuple[1]-s_pos) for each_tuple in out_insertion_qpos_ranges_right[idx]]
-        read_loci_variations[each_key]['seq'] = [read_sequence[s_pos:e_pos], loci_flank_qpos_range[idx], ins_left, ins_right, left_ins_rpos[idx], right_ins_rpos[idx]]
+        read_loci_variations[each_key]['seq'] = [read_sequence[s_pos:e_pos], loci_flank_qpos_range[idx], ins_left, ins_right, left_ins_rpos[idx], right_ins_rpos[idx], s_pos, e_pos]
+
+    return meth_start, meth_end
 
     
