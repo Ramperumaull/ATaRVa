@@ -41,12 +41,17 @@ def dbscan(data, hap_reads):
         
         return [True, new_haplotypes, new_alen]
     
-def mm_tag_extract(pos_qual, meth_start, meth_end):
+def mm_tag_extract(pos_qual, meth_start, meth_end, read_sequence, meth_cutoff):
     read_meth_range = []
+    last_index = len(read_sequence)-1
     if (meth_start!=None) and (meth_end!=None):
         for each_pos in pos_qual:
-            if meth_start <= each_pos[0] <= meth_end:
-                read_meth_range.append(each_pos)
+            if (each_pos[1]/255) < meth_cutoff:
+                continue
+            meth_pos = each_pos[0]
+            if meth_start <= meth_pos <= meth_end:
+                if (meth_pos+1 <= last_index) and (read_sequence[meth_pos : meth_pos+2]=='CG'):
+                    read_meth_range.append(each_pos)
     return read_meth_range
             
 def methylation_calc(hap_reads, global_loci_variations, locus_key):

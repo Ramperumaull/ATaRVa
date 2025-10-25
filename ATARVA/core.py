@@ -40,6 +40,7 @@ def parse_args():
     optional.add_argument('--snp-qual', type=int, metavar='<INT>', default=13, help='minimum basecall quality at the SNP position to be considered for phasing. [default: 13]')
     optional.add_argument('--flank', type=int, metavar='<INT>', default=None, help='length of the flanking region (in base pairs) to search for insertion with a repeat in it. [default: 10]')
     optional.add_argument('--snp-read', type=float, metavar='<FLOAT>', default=0.2, help='a positive float as the minimum fraction of snp\'s read contribution to be used for phasing. [default: 0.25]')
+    optional.add_argument('--meth-prob', type=float, metavar='<FLOAT>', default=0.5, help='a minimum probability cutoff for methylation. [default: 0.5]')
     optional.add_argument('--phasing-read', type=float, metavar='<FLOAT>', default=0.4, help='a positive float as the minimum fraction of total read contribution from the phased read clusters. [default: 0.4]')
     optional.add_argument('-o',  '--vcf', type=str, metavar='<FILE>', default='', help='name of the output file, output is in vcf format. [default: sys.stdout]')
     optional.add_argument('--karyotype', nargs='+', help='karyotype of the samples [XY XX]')
@@ -258,11 +259,11 @@ def main():
                 if srs:
                     thread_x = Process(
                         target = mini_cooper,
-                        args = (each_bam, args.regions, args.fasta, aln_format, contig, args.map_qual, out_file, args.snp_qual, args.snp_count, args.snp_dist, maxR, args.min_reads, args.snp_read, args.phasing_read, tidx, flank_length, args.debug_mode, karyotype_list[kidx], args.decompose, args.haplotag, args.amplicon))
+                        args = (each_bam, args.regions, args.fasta, aln_format, contig, args.map_qual, out_file, args.snp_qual, args.snp_count, args.snp_dist, maxR, args.min_reads, args.snp_read, args.phasing_read, tidx, flank_length, args.debug_mode, karyotype_list[kidx], args.decompose, args.haplotag, args.amplicon, args.meth_prob))
                 else:
                     thread_x = Process(
                         target = cooper,
-                        args = (each_bam, args.regions, args.fasta, aln_format, contig, args.map_qual, out_file, args.snp_qual, args.snp_count, args.snp_dist, maxR, args.min_reads, args.snp_read, args.phasing_read, tidx, flank_length, args.debug_mode, karyotype_list[kidx], args.decompose, args.haplotag, args.amplicon))
+                        args = (each_bam, args.regions, args.fasta, aln_format, contig, args.map_qual, out_file, args.snp_qual, args.snp_count, args.snp_dist, maxR, args.min_reads, args.snp_read, args.phasing_read, tidx, flank_length, args.debug_mode, karyotype_list[kidx], args.decompose, args.haplotag, args.amplicon, args.meth_prob))
                 thread_x.start()
                 thread_pool.append(thread_x)
 
@@ -302,9 +303,9 @@ def main():
                 out_log.close()
         else:
             if srs:
-                mini_cooper(each_bam, args.regions, args.fasta, aln_format, fetcher[0], args.map_qual, out_file, args.snp_qual, args.snp_count, args.snp_dist, maxR, args.min_reads, args.snp_read, args.phasing_read, -1, flank_length, args.debug_mode, karyotype_list[kidx], args.decompose, args.haplotag, args.amplicon)
+                mini_cooper(each_bam, args.regions, args.fasta, aln_format, fetcher[0], args.map_qual, out_file, args.snp_qual, args.snp_count, args.snp_dist, maxR, args.min_reads, args.snp_read, args.phasing_read, -1, flank_length, args.debug_mode, karyotype_list[kidx], args.decompose, args.haplotag, args.amplicon, args.meth_prob)
             else:
-                cooper(each_bam, args.regions, args.fasta, aln_format, fetcher[0], args.map_qual, out_file, args.snp_qual, args.snp_count, args.snp_dist, maxR, args.min_reads, args.snp_read, args.phasing_read, -1, flank_length, args.debug_mode, karyotype_list[kidx], args.decompose, args.haplotag, args.amplicon)
+                cooper(each_bam, args.regions, args.fasta, aln_format, fetcher[0], args.map_qual, out_file, args.snp_qual, args.snp_count, args.snp_dist, maxR, args.min_reads, args.snp_read, args.phasing_read, -1, flank_length, args.debug_mode, karyotype_list[kidx], args.decompose, args.haplotag, args.amplicon, args.meth_prob)
 
     time_now = ti.default_timer()
     sys.stderr.write('CPU time: {} seconds\n'.format(time_now - start_time))
