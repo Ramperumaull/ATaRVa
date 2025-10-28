@@ -419,9 +419,9 @@ def cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshold, ou
                 else:
                     init_amp_var.append(0)
                 meth_start, meth_end = parse_cstag(read_index, cs_tag, read_start, loci_keys, loci_coords, read_loci_variations, homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read_quality, cigar_one, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, init_amp_var)
-                read_modified_bases = list(read.modified_bases.values())
+                read_modified_bases = list(read.modified_bases.items())
                 if len(read_modified_bases)>0:
-                    read_meth_range = mm_tag_extract(read_modified_bases[0], meth_start, meth_end, read_sequence, meth_cutoff)
+                    read_meth_range = mm_tag_extract(read_modified_bases[0][1], meth_start, meth_end, read_sequence, meth_cutoff, not(read_modified_bases[0][0][1])) # last arg is bool value for strand state; forward = True, reverse = False
                     global_read_variations[read_index]['meth'] = read_meth_range
                 # if len(read_modified_bases)>1:
                 #     print(read.modified_bases)
@@ -431,9 +431,9 @@ def cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshold, ou
             else :
                 meth_start, meth_end = parse_cigar_tag(read_index, cigar_tuples, read_start, loci_keys, loci_coords, read_loci_variations,
                                 homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read, ref, read_quality, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, init_amp_var)
-                read_modified_bases = list(read.modified_bases.values())
+                read_modified_bases = list(read.modified_bases.items())
                 if len(read_modified_bases)>0:
-                    read_meth_range = mm_tag_extract(read_modified_bases[0], meth_start, meth_end, read_sequence, meth_cutoff)
+                    read_meth_range = mm_tag_extract(read_modified_bases[0][1], meth_start, meth_end, read_sequence, meth_cutoff, not(read_modified_bases[0][0][1])) # last arg is bool value for strand state; forward = True, reverse = False
                     global_read_variations[read_index]['meth'] = read_meth_range
                 # if len(read_modified_bases)>1:
                 #     print(read.modified_bases)
@@ -716,9 +716,9 @@ def mini_cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshol
                     else:
                         init_amp_var.append(0)
                     meth_start, meth_end = parse_cstag(read_index, cs_tag, read_start, loci_keys, loci_coords, read_loci_variations, homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read_quality, cigar_one, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, init_amp_var)
-                    read_modified_bases = list(read.modified_bases.values())
+                    read_modified_bases = list(read.modified_bases.items())
                     if len(read_modified_bases)>0:
-                        read_meth_range = mm_tag_extract(read_modified_bases[0], meth_start, meth_end, read_sequence, meth_cutoff)
+                        read_meth_range = mm_tag_extract(read_modified_bases[0][1], meth_start, meth_end, read_sequence, meth_cutoff, not(read_modified_bases[0][0][1])) # last arg is bool value for strand state; forward = True, reverse = False
                         global_read_variations[read_index]['meth'] = read_meth_range
                     
                     del read_modified_bases
@@ -727,9 +727,9 @@ def mini_cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshol
                 else :
                     meth_start, meth_end = parse_cigar_tag(read_index, cigar_tuples, read_start, loci_keys, loci_coords, read_loci_variations,
                                 homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read, ref, read_quality, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, init_amp_var)
-                    read_modified_bases = list(read.modified_bases.values())
+                    read_modified_bases = list(read.modified_bases.items())
                     if len(read_modified_bases)>0:
-                        read_meth_range = mm_tag_extract(read_modified_bases[0], meth_start, meth_end, read_sequence, meth_cutoff)
+                        read_meth_range = mm_tag_extract(read_modified_bases[0][1], meth_start, meth_end, read_sequence, meth_cutoff, not(read_modified_bases[0][0][1])) # last arg is bool value for strand state; forward = True, reverse = False
                         global_read_variations[read_index]['meth'] = read_meth_range
 
                     del read_modified_bases

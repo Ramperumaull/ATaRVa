@@ -122,10 +122,13 @@ def length_genotyper(hallele_counter, global_loci_info, global_loci_variations, 
             slide = max(max_val*0.1, 10)
             min_bound = min(alen_y)-slide
             max_bound = max_val+slide
-            for min_al in alen_x:
-                if min_bound <= min_al <= max_bound:
-                    br = True
-                    break
+            avg = sum(alen_x)/len(alen_x)
+            if min_bound <= avg <= max_bound:
+                br = True
+            # for min_al in alen_x:
+            #     if min_bound <= min_al <= max_bound:
+            #         br = True
+            #         break
 
             if not br:
                 cutoff = int(max(0.03, len(alen_x) / len(alen_data)) * len(alen_data)) # min 3 % of total reads should be in the cluster
