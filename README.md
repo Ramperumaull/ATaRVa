@@ -1,5 +1,5 @@
 # ATaRVa - a tandem repeat genotyper
-![Badge-PyPI](https://img.shields.io/badge/PyPI-v0.3.0-brightgreen)
+![Badge-PyPI](https://img.shields.io/badge/PyPI-v0.3.1-brightgreen)
 ![Badge-License](https://img.shields.io/badge/License-MIT-blue)
 
 <p align=center>
@@ -325,7 +325,7 @@ Performs motif-decomposition on ALT sequences.<br>
 **NOTE: Only applicable for motif length <= 10**
 
 ### `--amplicon`
-genotyping mode for targeted sequencing data. In this mode, the default values of `--max-reads` & `--flank` are 1000 & 20 respectively.
+genotyping mode for targeted sequencing data. In this mode, the default values for `max-reads` and `flank` values are 1000 and 20 respectively.
 
 ### `-v or --version`
 Prints the version info of ATaRVa.
@@ -385,7 +385,12 @@ $ docker run -i -t --rm -v /path_of_necessary_files/:/folder_name atarva:latest 
 In all the above examples, the output of ATaRVa is saved to input.vcf unless -o is specified.
 
 ## Changelog
-### v0.3.0 (current)
+### v0.3.1
+* Added checkpoint in amplicon mode for non-repeatedness in ALT sequence
+* Refined Motif-decomposition sequence for motif breaks
+* Added `AR` tag in VCF-SAMPLE column for allele range
+
+### v0.3.0
 * Added `--amplicon` mode for targeted sequencing data
 * Added function to convert eqx read sequence
 * Improved Outlier cleaning in K-Means clustering
