@@ -80,8 +80,15 @@ def process_locus(locus_key, global_loci_variations, global_read_variations, glo
         return [prev_reads, category, homozygous_allele, reads_of_homozygous, {}, 0, max_limit, haplotypes, []]
     elif total_reads > maxR:
         # coverage of the locus is high
-        read_indices = read_indices[:maxR]
-        read_tag = read_tag[:maxR]
+        read_qual_dict = {} # dict to store read quality
+        for each_read_id in read_indices:
+            read_qual_dict[each_read_id] = global_read_variations[each_read_id]['q']
+        sorted_reads_by_qual = [read_id for read_id,_ in sorted(read_qual_dict.items(), key = lambda x: x[1], reverse = True)] # sorting reads, based on quality
+        tmp_read_indices = set(sorted_reads_by_qual[:maxR])
+        good_qual_read_idx = [idx for idx,i in enumerate(read_indices) if i in tmp_read_indices] # getting the index of the good_qual read-ids
+        read_tag = [read_tag[i] for i in good_qual_read_idx] # extracting hp-tags of good-qual reads
+        read_indices = sorted(tmp_read_indices)
+        del tmp_read_indices, good_qual_read_idx
         max_limit=1
     
     current_reads = set(read_indices)

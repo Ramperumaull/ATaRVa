@@ -31,11 +31,11 @@ dependencies = [
 ]
 classifiers = [
     'Development Status :: 4 - Beta',
-    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.13',
     'Intended Audience :: Science/Research',
     'Topic :: Scientific/Engineering :: Bio-Informatics',
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.13"
 
 
 [project.urls]

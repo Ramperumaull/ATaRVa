@@ -7,7 +7,7 @@ from ATARVA.decomp_utils import motif_decomposition
 
 def dbscan(data, hap_reads):
     data = np.array(data).reshape(-1, 1)
-    min_samples = max(10, round(0.2*len(data))) # min 2% of the data or 10 reads
+    min_samples = max(10, round(0.2*len(data))) # min 20% of the data or 10 reads
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=FutureWarning)
         clusterer = hdbscan.HDBSCAN(min_cluster_size=min_samples)

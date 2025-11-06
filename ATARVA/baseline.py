@@ -377,6 +377,9 @@ def cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshold, ou
             read_quality = read.query_qualities
             cigar_tuples = read.cigartuples
             read_sequence = read.query_sequence
+            base_quals = read.query_qualities
+            mean_base_qual = int(np.mean(base_quals)) if base_quals else 0
+            del base_quals
 
             tmp_qpos = 0
             for cigar in cigar_tuples:
@@ -392,7 +395,7 @@ def cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshold, ou
 
             global_read_ends.append(read_end)
             global_read_indices.append(read_index)
-            global_read_variations[read_index] = {'s': read_start, 'e': read_end, 'snps': set(), 'dels': [], 'meth': []}
+            global_read_variations[read_index] = {'s': read_start, 'e': read_end, 'snps': set(), 'dels': [], 'meth': [], 'q': mean_base_qual}
 
 
             if hp_code: hp = read.has_tag(hp_code)
@@ -676,6 +679,9 @@ def mini_cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshol
                 read_quality = read.query_qualities
                 cigar_tuples = read.cigartuples
                 read_sequence = read.query_sequence
+                base_quals = read.query_qualities
+                mean_base_qual = int(np.mean(base_quals)) if base_quals else 0
+                del base_quals
 
                 tmp_qpos = 0
                 for cigar in cigar_tuples:
@@ -691,7 +697,7 @@ def mini_cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshol
 
                 global_read_ends.append(read_end)
                 global_read_indices.append(read_index)
-                global_read_variations[read_index] = {'s': read_start, 'e': read_end, 'snps': set(), 'dels': [], 'meth': []}
+                global_read_variations[read_index] = {'s': read_start, 'e': read_end, 'snps': set(), 'dels': [], 'meth': [], 'q': mean_base_qual}
     
                 if hp_code: hp = read.has_tag(hp_code)
                 else: hp = False
