@@ -31,7 +31,7 @@ def locus_processor(global_loci_keys, global_loci_ends, global_loci_variations, 
             sorted_global_snp_list = sorted(global_snp_positions.keys())
         
 
-        prev_reads, category, homozygous_allele, reads_of_homozygous, hallele_counter, skip_point, max_limit, haplotypes, homo_alen_list = process_locus(locus_key, global_loci_variations, global_read_variations, global_snp_positions, prev_reads, sorted_global_snp_list, maxR, minR, global_loci_info, near_by_loci, sorted_global_ins_rpos_set, Chrom, lstart, lend, ref, log_bool, logger, snpD, prev_locus_end, hp_code, amplicon)
+        prev_reads, category, homozygous_allele, reads_of_homozygous, hallele_counter, skip_point, haplotypes, homo_alen_list = process_locus(locus_key, global_loci_variations, global_read_variations, global_snp_positions, prev_reads, sorted_global_snp_list, maxR, minR, global_loci_info, near_by_loci, sorted_global_ins_rpos_set, Chrom, lstart, lend, ref, log_bool, logger, snpD, prev_locus_end, hp_code, amplicon)
 
         read_seqs = global_loci_variations[locus_key]['read_sequence']
         if category == 1:
@@ -49,16 +49,16 @@ def locus_processor(global_loci_keys, global_loci_ends, global_loci_variations, 
                 ALT = '.'
 
             lower,upper = confidence_interval(homo_alen_list)
-            meth_prob = methylation_calc(reads_of_homozygous, global_loci_variations, locus_key)
+            meth_info = methylation_calc(reads_of_homozygous, global_loci_variations, locus_key)
             if male:
                 allele_range = f'{lower}-{upper}'
             else:
                 allele_range = f'{lower}-{upper},{lower}-{upper}'
 
-            vcf_homozygous_writer(ref, Chrom, locus_key, global_loci_info, homozygous_allele, global_loci_variations, len(reads_of_homozygous), out, ALT, log_bool, '.', decomp, hallele_counter, male, allele_range, None, meth_prob)
+            vcf_homozygous_writer(ref, Chrom, locus_key, global_loci_info, homozygous_allele, len(reads_of_homozygous), len(reads_of_homozygous), out, ALT, log_bool, '.', decomp, hallele_counter, male, allele_range, None, meth_info)
             genotyped_loci += 1
         elif category == 2:
-            state, skip_point = analyse_genotype(Chrom, locus_key, global_loci_info, global_loci_variations, global_read_variations, global_snp_positions, hallele_counter, ref, out, sorted_global_snp_list, snpQ, snpC, snpD, snpR, phasingR, maxR, max_limit, male, log_bool, decomp, amplicon)
+            state, skip_point = analyse_genotype(Chrom, locus_key, global_loci_info, global_loci_variations, global_read_variations, global_snp_positions, hallele_counter, ref, out, sorted_global_snp_list, snpQ, snpC, snpD, snpR, phasingR, reads_of_homozygous, male, log_bool, decomp, amplicon)
             if state: genotyped_loci += 1
             else:
                 skip_messages = {
@@ -74,7 +74,7 @@ def locus_processor(global_loci_keys, global_loci_ends, global_loci_variations, 
             ALT_seqs = []
             phased_read = []
             alen_list = []
-            meth_prob = []
+            meth_info = []
             for hap_reads in haplotypes:
                 phased_read.append(len(hap_reads))
                 seqs = [seq for seq in [read_seqs[read_id][0] for read_id in hap_reads] if seq!='']
@@ -94,13 +94,13 @@ def locus_processor(global_loci_keys, global_loci_ends, global_loci_variations, 
                 else:
                     allele_count[str(allele_length)] = len(hap_reads)
 
-                meth_prob.append(methylation_calc(hap_reads, global_loci_variations, locus_key))
+                meth_info.append(methylation_calc(hap_reads, global_loci_variations, locus_key))
 
             lower1,upper1 = confidence_interval(alen_list[0])
             lower2,upper2 = confidence_interval(alen_list[1])
             allele_range = f'{lower1}-{upper1},{lower2}-{upper2}'
 
-            vcf_heterozygous_writer(Chrom, genotypes, lstart, global_loci_variations, lend, allele_count, len(reads_of_homozygous), global_loci_info, ref, out, '.', phased_read, 0, ALT_seqs, log_bool, 'HP', decomp, hallele_counter, allele_range, [None], meth_prob)
+            vcf_heterozygous_writer(Chrom, genotypes, lstart, lend, allele_count, len(reads_of_homozygous), global_loci_info, ref, out, '.', phased_read, 0, ALT_seqs, log_bool, 'HP', decomp, hallele_counter, allele_range, [None], meth_info)
             genotyped_loci += 1
         else:
             if skip_point == 0:

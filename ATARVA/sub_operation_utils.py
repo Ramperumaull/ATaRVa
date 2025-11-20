@@ -38,6 +38,9 @@ def dbscan(data, hap_reads):
         new_haplotypes = [[hap_reads[idx] for idx in top2_clus_idx[0][0]], [hap_reads[idx] for idx in top2_clus_idx[1][0]]] # getting respective read ids
 
         new_alen = [top2_clus_idx[0][1], top2_clus_idx[1][1]]
+
+        if set(new_alen[0])==set(new_alen[1]):
+            return [False,None,None]
         
         return [True, new_haplotypes, new_alen]
     
@@ -65,9 +68,9 @@ def methylation_calc(hap_reads, global_loci_variations, locus_key):
             meth_reads += 1
             hap_meth += locus_read_meth[read_id]
     if meth_reads > 0:
-        return round(hap_meth/meth_reads, 2)
+        return [round(hap_meth/meth_reads, 2), meth_reads]
     else:
-        return None
+        return [None, None]
     
 def confidence_interval(data):
     data = np.array(data)
