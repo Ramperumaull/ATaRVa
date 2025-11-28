@@ -25,6 +25,7 @@ def vcf_writer(out, bam, bam_name):
     vcf_header.info.add("AC", number='A', type="Integer", description="Number of alternate alleles in called genotypes")
     vcf_header.info.add("AN", number=1, type="Integer", description="Number of alleles in called genotypes")
     vcf_header.info.add("MOTIF", number=1, type="String", description="Repeat motif")
+    vcf_header.info.add("START", number=1, type="Integer", description="Start position of the repeat region in 0-based coordinate system")
     vcf_header.info.add("END", number=1, type="Integer", description="End position of the repeat region")
     vcf_header.info.add("CT", number=1, type="String", description="Cluster type")
     vcf_header.info.add("EAC", number=1, type="String", description="Each Allele Count")
@@ -75,9 +76,9 @@ def vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, homozygous_a
 
     if log_bool:
         eac = sorted(hallele_counter.items(), key = lambda x: x[1], reverse=True)
-        INFO = 'AC=' + str(AC) + ';AN=' + str(AN) + ';MOTIF=' + str(global_loci_info[locus_key][3]) + ';END=' + str(locus_end) + optional_tag + ';CT=' + tag + ';EAC=' + str(eac)
+        INFO = 'AC=' + str(AC) + ';AN=' + str(AN) + ';MOTIF=' + str(global_loci_info[locus_key][3]) + ';START=' + str(locus_start) + ';END=' + str(locus_end) + optional_tag + ';CT=' + tag + ';EAC=' + str(eac)
     else:
-        INFO = 'AC=' + str(AC) + ';AN=' + str(AN) + ';MOTIF=' + str(global_loci_info[locus_key][3]) + ';END=' + str(locus_end) + optional_tag
+        INFO = 'AC=' + str(AC) + ';AN=' + str(AN) + ';MOTIF=' + str(global_loci_info[locus_key][3]) + ';START=' + str(locus_start) + ';END=' + str(locus_end) + optional_tag
 
     if decomp:
         motif_size = int(float(global_loci_info[locus_key][4]))
@@ -105,7 +106,7 @@ def vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, homozygous_a
             SAMPLE = GT[0] + ':' + str(homozygous_allele) + ':' + allele_range + ':' + str(reads_len) + ':' + str(DP) + ':.:.' + ':' + meth_prob[0] + ':' + meth_reads
 
     
-    print(*[contig, locus_start, '.',  ref.fetch(contig, locus_start, locus_end), ALT , 0, 'PASS', INFO, FORMAT, SAMPLE], file=out, sep='\t')
+    print(*[contig, locus_start+1, '.',  ref.fetch(contig, locus_start, locus_end), ALT , 0, 'PASS', INFO, FORMAT, SAMPLE], file=out, sep='\t')
     del ALT_read
     del global_loci_info[locus_key]
 
@@ -208,9 +209,9 @@ def vcf_heterozygous_writer(contig, genotypes, locus_start, locus_end, allele_co
     if PC == '.,.': PC = '.' # due to length genotyper
     if log_bool:
         eac = sorted(hallele_counter.items(), key = lambda x: x[1], reverse=True)
-        INFO = 'AC='+str(AC)+';AN='+str(AN)+';MOTIF=' + str(global_loci_info[locus_key][3]) + ';END='+str(locus_end) + optional_tag + ';CT=' + tag + ';EAC=' + str(eac)
+        INFO = 'AC='+str(AC)+';AN='+str(AN)+';MOTIF=' + str(global_loci_info[locus_key][3]) + ';START=' + str(locus_start) + ';END='+str(locus_end) + optional_tag + ';CT=' + tag + ';EAC=' + str(eac)
     else:
-        INFO = 'AC='+str(AC)+';AN='+str(AN)+';MOTIF=' + str(global_loci_info[locus_key][3]) + ';END='+str(locus_end) + optional_tag
+        INFO = 'AC='+str(AC)+';AN='+str(AN)+';MOTIF=' + str(global_loci_info[locus_key][3]) + ';START=' + str(locus_start) + ';END='+str(locus_end) + optional_tag
 
     if decomp:
         motif_size = int(float(global_loci_info[locus_key][4]))
@@ -241,7 +242,7 @@ def vcf_heterozygous_writer(contig, genotypes, locus_start, locus_end, allele_co
     del ALT_reads
     del alt_seqs
 
-    print(*[contig, locus_start, '.',  ref.fetch(contig, locus_start, locus_end), ALT, 0, 'PASS', INFO, FORMAT, SAMPLE], file=out, sep='\t')
+    print(*[contig, locus_start+1, '.',  ref.fetch(contig, locus_start, locus_end), ALT, 0, 'PASS', INFO, FORMAT, SAMPLE], file=out, sep='\t')
     del global_loci_info[locus_key]
 
 def vcf_fail_writer(contig, locus_key, global_loci_info, ref, out, DP, skip_point):
@@ -259,9 +260,89 @@ def vcf_fail_writer(contig, locus_key, global_loci_info, ref, out, DP, skip_poin
           
     locus_key = f'{contig}:{locus_start}-{locus_end}'
 
-    INFO = 'AC=0;AN=0;MOTIF=' + str(global_loci_info[locus_key][3]) + ';END=' + str(locus_end) + optional_tag
+    INFO = 'AC=0;AN=0;MOTIF=' + str(global_loci_info[locus_key][3]) + ';START=' + str(locus_start) + ';END=' + str(locus_end) + optional_tag
     FORMAT = 'GT:AL:AR:SD:DP:SN:SQ:MM:MR'
     SAMPLE = '.:.:.:.:.:.:.:.:.'
 
-    print(*[contig, locus_start, '.',  ref.fetch(contig, locus_start, locus_end), '.', 0, FILTER, INFO, FORMAT, SAMPLE], file=out, sep='\t')
+    print(*[contig, locus_start+1, '.',  ref.fetch(contig, locus_start, locus_end), '.', 0, FILTER, INFO, FORMAT, SAMPLE], file=out, sep='\t')
     del global_loci_info[locus_key]
+
+def vcf_multizygous_writer(contig, genotype_dict, locus_start, locus_end, DP, global_loci_info, ref, out, log_bool, decomp, hallele_counter):
+
+    locus_key = f'{contig}:{locus_start}-{locus_end}'
+
+    tag = "correlation_clustering"
+
+    if len(global_loci_info[locus_key]) > 5:
+        optional_tag = f';{info_opt_tag}={global_loci_info[locus_key][5]}'
+    else:
+        optional_tag = ''
+
+    GT_dict = {}
+    gt_idx = 0
+    ref_allele_length = locus_end - locus_start
+    ref_seq = ref.fetch(contig, locus_start, locus_end)
+    for each_genotype in genotype_dict:
+        current_gt = genotype_dict[each_genotype]
+        if int(each_genotype) == ref_allele_length:
+            if ref_seq == current_gt[0]:
+                GT_dict[0] = (current_gt[0], str(each_genotype), current_gt[3], f'{current_gt[1][0]}-{current_gt[1][1]}', current_gt[4][0], current_gt[4][1], current_gt[2])
+            else:
+                gt_idx += 1
+                GT_dict[gt_idx] = (current_gt[0], str(each_genotype), current_gt[3], f'{current_gt[1][0]}-{current_gt[1][1]}', current_gt[4][0], current_gt[4][1], current_gt[2])
+        else:
+            gt_idx += 1
+            GT_dict[gt_idx] = (current_gt[0], str(each_genotype), current_gt[3], f'{current_gt[1][0]}-{current_gt[1][1]}', current_gt[4][0], current_gt[4][1], current_gt[2])
+    del genotype_dict
+    
+    GT = []
+    if gt_idx> 0:
+        AN = (gt_idx + 1) if (0 in GT_dict) else gt_idx
+    else:
+        AN = 2
+    # AN = (gt_idx + 1) if gt_idx>0 else 2
+    AC = ','.join(['1']*gt_idx) if gt_idx>0 else 0
+    ALT = []
+    AL = []
+    AR = []
+    SD = []
+    MM = []
+    MR = []
+    deseq = []
+    for gt_key in sorted(GT_dict.keys()):
+        GT.append(str(gt_key))
+        if gt_key != 0:
+            ALT.append(GT_dict[gt_key][0])
+            deseq.append(GT_dict[gt_key][6] if GT_dict[gt_key][6] else '.')
+        AL.append(GT_dict[gt_key][1])
+        SD.append(str(GT_dict[gt_key][2]))
+        AR.append(GT_dict[gt_key][3])
+        MM.append(str(GT_dict[gt_key][4]) if GT_dict[gt_key][4] is not None else '.')
+        MR.append(str(GT_dict[gt_key][5]) if GT_dict[gt_key][5] is not None else '.')
+    del GT_dict
+
+    GT = '/'.join(GT)
+    ALT = ','.join(ALT) if ALT else '.'
+    AL = ','.join(AL)
+    AR = ','.join(AR)
+    SD = ','.join(SD)
+    MM = ','.join(MM)
+    MR = ','.join(MR)
+        
+    if log_bool:
+        eac = sorted(hallele_counter.items(), key = lambda x: x[1], reverse=True)
+        INFO = 'AC='+str(AC)+';AN='+str(AN)+';MOTIF=' + str(global_loci_info[locus_key][3]) + ';START=' + str(locus_start) + ';END='+str(locus_end) + optional_tag + ';CT=' + tag + ';EAC=' + str(eac)
+    else:
+        INFO = 'AC='+str(AC)+';AN='+str(AN)+';MOTIF=' + str(global_loci_info[locus_key][3]) + ';START=' + str(locus_start) + ';END='+str(locus_end) + optional_tag
+
+    if decomp:
+        FORMAT = 'GT:AL:AR:SD:DP:SN:SQ:MM:MR:DS'
+        deseq = ','.join(deseq) if deseq else '.'
+        SAMPLE = GT + ':' + AL + ':' + AR + ':' + SD + ':' + str(DP) + ':.:.:' + MM + ':' + MR + ':' + deseq
+    else:
+        FORMAT = 'GT:AL:AR:SD:DP:SN:SQ:MM:MR'
+        SAMPLE = GT + ':' + AL + ':' + AR + ':' + SD + ':' + str(DP) + ':.:.:' + MM + ':' + MR
+
+    print(*[contig, locus_start+1, '.',  ref_seq, ALT, 0, 'PASS', INFO, FORMAT, SAMPLE], file=out, sep='\t')
+
+    del GT, ALT, AL, AR, SD, MM, MR, deseq, global_loci_info[locus_key]

@@ -86,7 +86,7 @@ def parse_cigar_tag(read_index, cigar_tuples, read_start, loci_keys, loci_coords
             repeat_index += insertion_jump(insert_length, '', rpos, repeat_index, loci_keys,
                                            tracked, loci_coords, homopoly_positions, read_loci_variations, locus_qpos_range, qpos, loci_flank_qpos_range, flank_track, left_flank_list, right_flank_list, out_insertion_qpos_ranges_left, out_insertion_qpos_ranges_right, left_ins_rpos, right_ins_rpos, amp_right_flank_list, amp_left_flank_list, amplicon_variables)
         elif cigar[0] == 0: # match (both equals & difference)
-            if (not md) & (not male) & (not hp):
+            if (not md) & (not male) & (not hp)and (amplicon_variables==[]):
                 ref_sequence = ref.fetch(chrom, rpos, rpos+cigar[1])
                 query_sequence = read_sequence[qpos:qpos+cigar[1]]
                 sub_pos = []
@@ -122,7 +122,7 @@ def parse_cigar_tag(read_index, cigar_tuples, read_start, loci_keys, loci_coords
 
         elif cigar[0] == 8: # substitution (difference)
             X_tag = True
-            if (not male) and outside_locus(loci_coords, rpos) and (not hp):
+            if (not male) and outside_locus(loci_coords, rpos) and (not hp) and (amplicon_variables==[]):
                 sub_nuc = read_sequence[qpos]
                 Q_value = read_quality[qpos]
                 global_read_variations[read_index]['snps'].add(rpos)
@@ -144,7 +144,7 @@ def parse_cigar_tag(read_index, cigar_tuples, read_start, loci_keys, loci_coords
             if cigar_tuples[0][0] == 4: qpos = cigar_tuples[0][1]
             else: qpos=0
             MD_tag = read.get_tag('MD')
-            parse_mdtag(MD_tag, qpos, read_start, global_read_variations, global_snp_positions, read_index, read_quality, read_sequence, sorted_global_snp_list, insertion_point, loci_coords, male, hp)
+            parse_mdtag(MD_tag, qpos, read_start, global_read_variations, global_snp_positions, read_index, read_quality, read_sequence, sorted_global_snp_list, insertion_point, loci_coords, male, hp, amplicon_variables)
 
     tot_loc = len(loci_keys) - 1 # 0-based counting
     meth_start = None; meth_end = None # repeat sequence coordinates in the read for meth-calc

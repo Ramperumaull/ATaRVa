@@ -48,6 +48,7 @@ def parse_args():
     optional.add_argument('--haplotag', type=str, metavar='<STR>', default=None, help='use haplotagged information for phasing. eg: [HP]. [default: None]')
     optional.add_argument('--decompose', action='store_true', help="write the motif-decomposed sequence to the vcf. [default: False]")
     optional.add_argument('--amplicon', action='store_true', help="genotype mode for targeted-sequenced samples. In this mode, the default values for `max-reads` and `flank` values are 1000 and 20 respectively. [default: False]")
+    optional.add_argument('--somatic', action='store_true', help="genotype mode for capturing mosaicism in samples. In this mode, default `max-reads` and `flank` values are same as amplicon mode. [default: False]")
     optional.add_argument('-log', '--debug_mode', action='store_true', help="write the debug messages to log file. [default: False]")
     optional.add_argument('-v', '--version', action='version', version=f'ATaRVa version {__version__}')
     
@@ -168,7 +169,7 @@ def main():
 
     maxR = args.max_reads
     flank_length = args.flank
-    if args.amplicon:
+    if args.amplicon or args.somatic:
         if args.max_reads is None: maxR = 1000
         if args.flank is None: flank_length = 20
     else:
@@ -240,11 +241,24 @@ def main():
                 break
                 # sys.exit()
         aln_file.close()
-        srs = False
-        if length/count < 350:
-            print('Short reads detected... Processing in short-read mode.')
+
+        amplicon = False
+        somatic = False
+        if args.amplicon:
             srs = True
-        else: print('Long reads detected... Processing in long-read mode.')
+            amplicon = True
+            print('Processing in amplicon mode...')
+        elif args.somatic:
+            srs = True
+            somatic = True
+            print('Processing in somatic mode...')
+            amplicon = True
+        else:
+            srs = False
+            if length/count < 350:
+                print('Short reads detected... Processing in short-read mode.')
+                srs = True
+            else: print('Long reads detected... Processing in long-read mode.')
 
         if not args.vcf:
             out_file = f'{".".join(each_bam.split("/")[-1].split(".")[:-1])}'
@@ -259,11 +273,11 @@ def main():
                 if srs:
                     thread_x = Process(
                         target = mini_cooper,
-                        args = (each_bam, args.regions, args.fasta, aln_format, contig, args.map_qual, out_file, args.snp_qual, args.snp_count, args.snp_dist, maxR, args.min_reads, args.snp_read, args.phasing_read, tidx, flank_length, args.debug_mode, karyotype_list[kidx], args.decompose, args.haplotag, args.amplicon, args.meth_prob))
+                        args = (each_bam, args.regions, args.fasta, aln_format, contig, args.map_qual, out_file, args.snp_qual, args.snp_count, args.snp_dist, maxR, args.min_reads, args.snp_read, args.phasing_read, tidx, flank_length, args.debug_mode, karyotype_list[kidx], args.decompose, args.haplotag, amplicon, args.meth_prob, somatic))
                 else:
                     thread_x = Process(
                         target = cooper,
-                        args = (each_bam, args.regions, args.fasta, aln_format, contig, args.map_qual, out_file, args.snp_qual, args.snp_count, args.snp_dist, maxR, args.min_reads, args.snp_read, args.phasing_read, tidx, flank_length, args.debug_mode, karyotype_list[kidx], args.decompose, args.haplotag, args.amplicon, args.meth_prob))
+                        args = (each_bam, args.regions, args.fasta, aln_format, contig, args.map_qual, out_file, args.snp_qual, args.snp_count, args.snp_dist, maxR, args.min_reads, args.snp_read, args.phasing_read, tidx, flank_length, args.debug_mode, karyotype_list[kidx], args.decompose, args.haplotag, amplicon, args.meth_prob, somatic))
                 thread_x.start()
                 thread_pool.append(thread_x)
 
@@ -303,9 +317,9 @@ def main():
                 out_log.close()
         else:
             if srs:
-                mini_cooper(each_bam, args.regions, args.fasta, aln_format, fetcher[0], args.map_qual, out_file, args.snp_qual, args.snp_count, args.snp_dist, maxR, args.min_reads, args.snp_read, args.phasing_read, -1, flank_length, args.debug_mode, karyotype_list[kidx], args.decompose, args.haplotag, args.amplicon, args.meth_prob)
+                mini_cooper(each_bam, args.regions, args.fasta, aln_format, fetcher[0], args.map_qual, out_file, args.snp_qual, args.snp_count, args.snp_dist, maxR, args.min_reads, args.snp_read, args.phasing_read, -1, flank_length, args.debug_mode, karyotype_list[kidx], args.decompose, args.haplotag, amplicon, args.meth_prob, somatic)
             else:
-                cooper(each_bam, args.regions, args.fasta, aln_format, fetcher[0], args.map_qual, out_file, args.snp_qual, args.snp_count, args.snp_dist, maxR, args.min_reads, args.snp_read, args.phasing_read, -1, flank_length, args.debug_mode, karyotype_list[kidx], args.decompose, args.haplotag, args.amplicon, args.meth_prob)
+                cooper(each_bam, args.regions, args.fasta, aln_format, fetcher[0], args.map_qual, out_file, args.snp_qual, args.snp_count, args.snp_dist, maxR, args.min_reads, args.snp_read, args.phasing_read, -1, flank_length, args.debug_mode, karyotype_list[kidx], args.decompose, args.haplotag, amplicon, args.meth_prob, somatic)
 
     time_now = ti.default_timer()
     sys.stderr.write('CPU time: {} seconds\n'.format(time_now - start_time))

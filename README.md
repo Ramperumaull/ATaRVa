@@ -63,9 +63,9 @@ which gives the following output
 usage: atarva [-h] -f <FILE> -b <FILE> [<FILE> ...] -r <FILE> [--format <STR>] [-q <INT>]
               [--contigs CONTIGS [CONTIGS ...]] [--min-reads <INT>] [--max-reads <INT>]
               [--snp-dist <INT>] [--snp-count <INT>] [--snp-qual <INT>] [--flank <INT>]
-              [--snp-read <FLOAT>] [--phasing-read <FLOAT>] [-o <FILE>]
+              [--snp-read <FLOAT>] [--meth-prob <FLOAT>] [--phasing-read <FLOAT>] [-o <FILE>]
               [--karyotype KARYOTYPE [KARYOTYPE ...]] [-t <INT>] [--haplotag <STR>]
-              [--decompose] [--amplicon] [-log] [-v]
+              [--decompose] [--amplicon] [--somatic] [-log] [-v]
 
 Required arguments:
   -f <FILE>, --fasta <FILE>
@@ -97,6 +97,7 @@ Optional arguments:
                         with a repeat in it. [default: 10]
   --snp-read <FLOAT>    a positive float as the minimum fraction of snp's read contribution to
                         be used for phasing. [default: 0.25]
+  --meth-prob <FLOAT>   a minimum probability cutoff for methylation. [default: 0.5]
   --phasing-read <FLOAT>
                         a positive float as the minimum fraction of total read contribution from
                         the phased read clusters. [default: 0.4]
@@ -109,6 +110,7 @@ Optional arguments:
   --haplotag <STR>      use haplotagged information for phasing. eg: [HP]. [default: None]
   --decompose           write the motif-decomposed sequence to the vcf. [default: False]
   --amplicon            genotype mode for targeted-sequenced samples. In this mode, the default values for `max-reads` and `flank` values are 1000 and 20 respectively [default: False]
+  --somatic             genotype mode for capturing mosaicism in samples. In this mode, default `max-reads` and `flank` values are same as amplicon mode. [default: False]
   -log, --debug_mode    write the debug messages to log file. [default: False]
   -v, --version         show program's version number and exit
 ```
@@ -282,6 +284,7 @@ The `INFO` field describes the general structure of the repeat region and includ
 | AC | Total number of respective ALT alleles in called genotypes |
 | AN | Total number of alleles in called genotypes |
 | MOTIF | Motif of the repeat region |
+| START | Start position of the repeat region |
 | END | End position of the repeat region |
 | ID  | Tag fetched form the extra column in BED file |
 
@@ -299,6 +302,7 @@ The `FORMAT` fields and their values are provided in the last two columns of the
 | SN | Number of SNPs used for phasing |
 | SQ | Phred-scale qualities of the SNPs used for phasing |
 | MM | Mean methylation level for each allele |
+| MR | Number of reads supporting methylation info for each allele |
 | DS | Motif decomposed sequence of the alternate alleles |
 
 **NOTE: Loci missing in the VCF either have no reads mapped to them, contain reads that do not fully enclose the repeat region, or have reads with low mapping quality (mapQ).**
@@ -323,7 +327,10 @@ Performs motif-decomposition on ALT sequences.<br>
 **NOTE: Only applicable for motif length <= 10**
 
 ### `--amplicon`
-genotyping mode for targeted sequencing data. In this mode, the default values for `max-reads` and `flank` values are 1000 and 20 respectively.
+Genotyping mode for targeted sequencing data. In this mode, the default values for `max-reads` and `flank` values are 1000 and 20 respectively.
+
+### `--somatic`
+Genotyping mode optimized for mosaic samples, where multiple alleles beyond diploid genotypes may occur. It operates similarly to the `amplicon` mode but incorporates correlation clustering based on sequence composition to resolve complex allele mixtures.
 
 ### `-v or --version`
 Prints the version info of ATaRVa.
@@ -384,10 +391,17 @@ In all the above examples, the output of ATaRVa is saved to input.vcf unless -o 
 
 ## Changelog
 ### v0.4.0
-* Added checkpoint in amplicon mode for non-repeatedness in ALT sequence and implemented DBSCAN clustering
+* Changed the VCF-START column into 1-based coordinate system
+* Included `START` tag in VCF-INFO column with 0-based coordinate system
+* Implemented DBSCAN clustering in `amplicon` mode to check for multiple clusters
+* Modified `AR` tag in VCF-SAMPLE column with central 95% allele range
+* Added `MM` & `MR` tags in VCF_SAMPLE column for mean methylation level & its supporting reads
+* Added `somatic` mode for handling mosaicism
+
+### v0.3.1
+* Added checkpoint in amplicon mode for non-repeatedness in ALT sequence
 * Refined Motif-decomposition sequence for motif breaks
 * Added `AR` tag in VCF-SAMPLE column for allele range
-* Added `MM` tag in VCF_SAMPLE column for mean methylation level
 
 ### v0.3.0
 * Added `--amplicon` mode for targeted sequencing data

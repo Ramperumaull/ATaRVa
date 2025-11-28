@@ -1,6 +1,7 @@
 from ATARVA.snp_utils import haplocluster_reads
 from ATARVA.vcf_writer import *
 from ATARVA.sub_operation_utils import *
+from ATARVA.somatic_utils import *
 
 import numpy as np
 from sklearn.cluster import KMeans
@@ -198,7 +199,7 @@ def length_genotyper(hallele_counter, global_loci_info, global_loci_variations, 
 
 def analyse_genotype(contig, locus_key, global_loci_info,
                      global_loci_variations, global_read_variations, global_snp_positions, hallele_counter,
-                     ref, out, sorted_global_snp_list, snpQ, snpC, snpD, snpR, phasingR, read_indices, male, log_bool, decomp, amplicon):
+                     ref, out, sorted_global_snp_list, snpQ, snpC, snpD, snpR, phasingR, read_indices, male, log_bool, decomp, amplicon, somatic):
             
     locus_start = int(global_loci_info[locus_key][1])
     locus_end = int(global_loci_info[locus_key][2])
@@ -213,7 +214,13 @@ def analyse_genotype(contig, locus_key, global_loci_info,
 
     read_seqs = global_loci_variations[locus_key]['read_sequence']
 
-    if male or amplicon: 
+    if somatic: # for somatic variant calling
+        state, skip_point, genotype_dict = correlation_clustering(read_seqs, read_indices, motif_size, global_loci_variations, locus_key)
+        if state:
+            vcf_multizygous_writer(contig, genotype_dict, locus_start, locus_end, len(read_indices), global_loci_info, ref, out, log_bool, decomp, hallele_counter)
+        return [state, skip_point]
+    
+    elif male or amplicon: # for haploid and amplicon genotyping
         state, skip_point = length_genotyper(hallele_counter, global_loci_info, global_loci_variations, locus_key, read_indices, contig, locus_start, locus_end, ref, out, male, log_bool, decomp, read_seqs, amplicon)
         return [state, skip_point]
 

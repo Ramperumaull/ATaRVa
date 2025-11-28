@@ -154,7 +154,7 @@ def window_scan(shift_list, motif_size, sequence, sequential_decomp, sequential_
             i+=motif_size
 
             continue
-        # i+=slide_size
+
         else:
             i+=1
             if not initial:
@@ -347,8 +347,19 @@ def refine_decomposition(split_seq, bed_motif, seq_len):
             motif_len = len(tmp_motif)
             if len(set(tmp_motif)) == 1:
                 new_seq_list.append(f'({tmp_motif[0]}){motif_len*count}')
+
+            elif (len(tmp_motif)%2==0): # to atomise the bigger motif
+                
+                mid_point = int(motif_len/2)
+                if tmp_motif[0: mid_point] == tmp_motif[mid_point:]:
+                    check_motif = tmp_motif[0: mid_point]
+                    new_seq_list.append(f'({check_motif}){count*2}')
+                else:
+                    new_seq_list.append(i)
+                    
             elif motif_len <= bed_motif: # skip if the current motif is already smaller than the bed motif
                 new_seq_list.append(i)
+                    
             elif (motif_len!=1) & (motif_len>bed_motif) & (motif_len%bed_motif == 0): # procedd only for bigger motifs and divisible by bed motif
                 for div in divisor_dict[motif_len]:
                     check_motif = tmp_motif[: div]
@@ -364,43 +375,70 @@ def refine_decomposition(split_seq, bed_motif, seq_len):
                     new_seq_list.append(i)
             else:
                 new_seq_list.append(i)
-                    
         else:
             new_seq_list.append(i)
             non_repeat += len(i)
 
+    
     # check for breaks of identical nearby decompositions
     dlen = len(new_seq_list) - 1
     loc = 0
     refined_list = []
+    # adjacent_motif_break
     while loc < dlen:
         current = new_seq_list[loc]
-        if '(' not in current: # skip if its non repeatitive part
-            refined_list.append(current)
-            loc+=1
-            if loc==dlen: refined_list.append(new_seq_list[-1])
-            continue
         next = new_seq_list[loc+1]
-        if '(' not in next: # check if succeding part is non repetitive
-            refined_list.append(current)
-            refined_list.append(next)
-            loc+=2
-            if loc==dlen: refined_list.append(new_seq_list[-1])
-            continue
 
-        e1 = current.index(')')
-        e2 = next.index(')')
-        tmp1 = current[1:e1]
-        tmp2 = next[1:e2]
-        if tmp1==tmp2: # combine if both are identical
-            combined_count = int(current[e1+1:]) + int(next[e2+1:])
-            refined_list.append(f'({tmp1}){combined_count}')
-            loc+=2
+        current_state = 1 if '(' in current else 0
+        next_state = 1 if '(' in next else 0
+        if current_state==next_state:
+            e1 = current.index(')')
+            e2 = next.index(')')
+            tmp1 = current[1:e1]
+            tmp2 = next[1:e2]
+            if tmp1==tmp2: # combine if both are identical
+                combined_count = int(current[e1+1:]) + int(next[e2+1:])
+                refined_list.append(f'({tmp1}){combined_count}')
+                loc+=2
+            else:
+                refined_list.append(current)
+                loc+=1
+                if loc==dlen: refined_list.append(next)
         else:
-            refined_list.append(current)
-            loc+=1
-            if loc==dlen: refined_list.append(next)
+            if current_state==1: # next is non-rep part
+                e1 = current.index(')')
+                tmp1 = current[1:e1]
+                if (len(next)>len(tmp1)) and tmp1==next[0:len(tmp1)]:
+                    combined_count = int(current[e1+1:]) + 1
+                    refined_list.append(f'({tmp1}){combined_count}')
+                    refined_list.append(next[len(tmp1) : ])
+                    loc+=2
+                elif tmp1==next:
+                    combined_count = int(current[e1+1:]) + 1
+                    refined_list.append(f'({tmp1}){combined_count}')
+                    loc+=2
+                else:
+                    refined_list.append(current)
+                    loc+=1
+                    if loc==dlen: refined_list.append(next)
+            else: # current is non-rep part
+                e2 = next.index(')')
+                tmp2 = next[1:e2]
+                if (len(current) > len(tmp2)) and tmp2==current[len(current)-len(tmp2) : ]:
+                    combined_count = int(next[e2+1:]) + 1
+                    refined_list.append(current[0 : len(current)-len(tmp2)])
+                    refined_list.append(f'({tmp2}){combined_count}')
+                    loc+=2
+                elif tmp2==current:
+                    combined_count = int(next[e2+1:]) + 1
+                    refined_list.append(f'({tmp2}){combined_count}')
+                    loc+=2
+                else:
+                    refined_list.append(current)
+                    loc+=1
+                    if loc==dlen: refined_list.append(next)
 
+    
     non_rep_percent = round(non_repeat/seq_len, 2)
 
     return [refined_list, non_rep_percent]

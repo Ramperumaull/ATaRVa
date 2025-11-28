@@ -22,7 +22,7 @@ def sub_parse(base, sub_char, male, sorted_global_snp_list, global_snp_positions
             outside_loci = False
             break
 
-    if (not male) and outside_loci and (not hp):
+    if (not male) and outside_loci and (not hp) and (amplicon_variables==[]):
         Q_value = read_quality[qpos]
         global_read_variations[read_index]['snps'].add(rpos)
         
@@ -53,7 +53,7 @@ def ins_parse(base, insert, rpos, repeat_index, loci_keys,
 
 def del_parse(base, male, global_read_variations, read_index, rpos, repeat_index, loci_keys, tracked, loci_coords,
                           homopoly_positions, read_loci_variations, locus_qpos_range, qpos, loci_flank_qpos_range, flank_track, left_flank_list, right_flank_list, amp_right_flank_list, amp_left_flank_list, out_insertion_qpos_ranges_right, out_insertion_qpos_ranges_left, right_ins_rpos, left_ins_rpos, amplicon_variables):
-    if not male:
+    if (not male) or (amplicon_variables==[]):
         global_read_variations[read_index]['dels'].extend([rpos, rpos+base])
     rpos += base
     repeat_index += deletion_jump(base, rpos, repeat_index, loci_keys, tracked, loci_coords,
