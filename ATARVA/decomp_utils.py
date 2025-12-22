@@ -2,7 +2,7 @@ from collections import Counter
 from bitarray import bitarray
 import regex as re
 
-divisor_dict = {4:[2], 6:[2,3], 8:[2,4], 9:[3], 10:[2,5]}
+divisor_dict = {2:[1], 3:[1], 4:[1,2], 5:[1], 6:[1,2,3], 7:[1], 8:[1,2,4], 9:[1,3], 10:[1,2,5]}
 def convert_to_bitset(seq):
     lbit = {'A': '0', 'C': '0', 'G': '1', 'T': '1', 'N': '1'}
     rbit = {'A': '0', 'C': '1', 'G': '0', 'T': '1', 'N': '1'}
@@ -274,9 +274,13 @@ def motif_decomposition(sequence, motif_size):
     gap_regions = [[0, seq_len]]
     rounds = 0
     while any(sequential_part):
-        if rounds >= 1:
+        if rounds == 1:
             shift_list[0][:] = 0
-        gap_wise_shift = max_match(shift_list, gap_regions)
+            
+        if (rounds==0) and (motif_size==1):
+            gap_wise_shift = [1]
+        else:
+            gap_wise_shift = max_match(shift_list, gap_regions)
 
         for index, best_shift in enumerate(gap_wise_shift):
             
@@ -341,9 +345,11 @@ def refine_decomposition(split_seq, bed_motif, seq_len):
             count = int(i[end_point+1:])
             tmp_motif = i[1:end_point]
             motif_len = len(tmp_motif)
-            if motif_len <= bed_motif: # skip if the current motif is already smaller than the bed motif
+            if len(set(tmp_motif)) == 1:
+                new_seq_list.append(f'({tmp_motif[0]}){motif_len*count}')
+            elif motif_len <= bed_motif: # skip if the current motif is already smaller than the bed motif
                 new_seq_list.append(i)
-            if (motif_len!=1) & (motif_len>bed_motif) & (motif_len%bed_motif == 0): # procedd only for bigger motifs and divisible by bed motif
+            elif (motif_len!=1) & (motif_len>bed_motif) & (motif_len%bed_motif == 0): # procedd only for bigger motifs and divisible by bed motif
                 for div in divisor_dict[motif_len]:
                     check_motif = tmp_motif[: div]
                     e = 0
@@ -356,6 +362,8 @@ def refine_decomposition(split_seq, bed_motif, seq_len):
                         break
                 else:
                     new_seq_list.append(i)
+            else:
+                new_seq_list.append(i)
                     
         else:
             new_seq_list.append(i)

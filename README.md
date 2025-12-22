@@ -1,5 +1,5 @@
 # ATaRVa - a tandem repeat genotyper
-![Badge-PyPI](https://img.shields.io/badge/PyPI-v0.3.1-brightgreen)
+![Badge-PyPI](https://img.shields.io/badge/PyPI-v0.4.0-brightgreen)
 ![Badge-License](https://img.shields.io/badge/License-MIT-blue)
 
 <p align=center>
@@ -66,7 +66,7 @@ which gives the following output
 usage: atarva [-h] -f <FILE> -b <FILE> [<FILE> ...] -r <FILE> [--format <STR>] [-q <INT>]
               [--contigs CONTIGS [CONTIGS ...]] [--min-reads <INT>] [--max-reads <INT>]
               [--snp-dist <INT>] [--snp-count <INT>] [--snp-qual <INT>] [--flank <INT>]
-              [--snp-read <FLOAT>] [--phasing-read <FLOAT>] [-o <FILE>]
+              [--snp-read <FLOAT>] [--meth-prob <FLOAT>] [--phasing-read <FLOAT>] [-o <FILE>]
               [--karyotype KARYOTYPE [KARYOTYPE ...]] [-t <INT>] [--haplotag <STR>]
               [--decompose] [--amplicon] [-log] [-v]
 
@@ -100,6 +100,7 @@ Optional arguments:
                         with a repeat in it. [default: 10]
   --snp-read <FLOAT>    a positive float as the minimum fraction of snp's read contribution to
                         be used for phasing. [default: 0.25]
+  --meth-prob <FLOAT>   a minimum probability cutoff for methylation. [default: 0.5]
   --phasing-read <FLOAT>
                         a positive float as the minimum fraction of total read contribution from
                         the phased read clusters. [default: 0.4]
@@ -256,6 +257,11 @@ The number of base pairs in the flanking regions to be used for realignment.
 **Default**: *0.2*<br>
 Minimum fraction of SNPs in the supporting reads of the repeat locus allowed for phasing.
 
+### `--meth-prob`
+**Expects**: *FLOAT*<br>
+**Default**: *0.5*<br>
+Minimum probability value of methylation call to be considered for calculation, in the supporting reads of the repeat locus.
+
 ### `--phasing-read`
 **Expects**: *FLOAT*<br>
 **Default**: *0.4*<br>
@@ -297,11 +303,12 @@ The `FORMAT` fields and their values are provided in the last two columns of the
 |-----------------|---------------------------------|
 | GT | Genotype of the sample |
 | AL | Length of the alleles in base pairs |
-| AR | Range of allele lengths (min-max) in each cluster |
+| AR | Central 95% range of allele lengths in each cluster |
 | SD | Number of supporting reads for each alleles |
 | DP | Number of the supporting reads for the repeat locus |
 | SN | Number of SNPs used for phasing |
 | SQ | Phred-scale qualities of the SNPs used for phasing |  
+| MM | Mean methylation level for each allele | 
 | DS | Motif decomposed sequence of the alternate alleles |
 
 **NOTE: Loci missing in the VCF either have no reads mapped to them, contain reads that do not fully enclose the repeat region, or have reads with low mapping quality (mapQ).**
@@ -386,6 +393,12 @@ $ docker run -i -t --rm -v /path_of_necessary_files/:/folder_name atarva:latest 
 In all the above examples, the output of ATaRVa is saved to input.vcf unless -o is specified.
 
 ## Changelog
+### v0.4.0
+* Added `MM` tag in VCF_SAMPLE column for mean methylation level
+* Modified `AR` tag in VCF-SAMPLE column with central 95% allele range
+* Implemented DBSCAN clustering in `amplicon` mode to check for multiple clusters
+* Fixed bugs in decomposition function [#8](https://github.com/SowpatiLab/ATaRVa/issues/8)
+
 ### v0.3.1
 * Added checkpoint in amplicon mode for non-repeatedness in ALT sequence
 * Refined Motif-decomposition sequence for motif breaks

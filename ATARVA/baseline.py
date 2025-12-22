@@ -5,10 +5,11 @@ from ATARVA.operation_utils import convert_eqx_read
 from ATARVA.genotype_utils import analyse_genotype
 from ATARVA.vcf_writer import *
 from ATARVA.consensus import consensus_seq_poa
+from ATARVA.sub_operation_utils import *
 
 from tqdm import tqdm
 import pysam
-import sys
+import numpy as np
 import logging
 
 def locus_processor(global_loci_keys, global_loci_ends, global_loci_variations, global_read_variations, global_snp_positions, prev_reads, sorted_global_snp_list, maxR, minR, ref, Chrom, global_loci_info, out, snpQ, snpC, snpD, snpR, phasingR, tbx, flank, sorted_global_ins_rpos_set, log_bool, logger, male, prev_locus_end, decomp, hp_code, amplicon):
@@ -30,12 +31,11 @@ def locus_processor(global_loci_keys, global_loci_ends, global_loci_variations, 
             sorted_global_snp_list = sorted(global_snp_positions.keys())
         
 
-        prev_reads, category, homozygous_allele, reads_of_homozygous, hallele_counter, skip_point, max_limit, haplotypes = process_locus(locus_key, global_loci_variations, global_read_variations, global_snp_positions, prev_reads, sorted_global_snp_list, maxR, minR, global_loci_info, near_by_loci, sorted_global_ins_rpos_set, Chrom, lstart, lend, ref, log_bool, logger, snpD, prev_locus_end, hp_code, amplicon)
+        prev_reads, category, homozygous_allele, reads_of_homozygous, hallele_counter, skip_point, max_limit, haplotypes, homo_alen_list = process_locus(locus_key, global_loci_variations, global_read_variations, global_snp_positions, prev_reads, sorted_global_snp_list, maxR, minR, global_loci_info, near_by_loci, sorted_global_ins_rpos_set, Chrom, lstart, lend, ref, log_bool, logger, snpD, prev_locus_end, hp_code, amplicon)
 
         read_seqs = global_loci_variations[locus_key]['read_sequence']
         if category == 1:
             ref_allele_length = lend - lstart
-            unique_alen = list(hallele_counter.keys())
             if homozygous_allele != ref_allele_length:
                 seqs = [seq for seq in [read_seqs[read_id][0] for read_id in reads_of_homozygous] if seq!='']
                 if len(seqs)>0:
@@ -46,11 +46,15 @@ def locus_processor(global_loci_keys, global_loci_ends, global_loci_variations, 
                     homozygous_allele = 0
             else:
                 ALT = '.'
+
+            lower,upper = confidence_interval(homo_alen_list)
+            meth_prob = methylation_calc(reads_of_homozygous, global_loci_variations, locus_key)
             if male:
-                allele_range = f'{min(unique_alen)}-{max(unique_alen)}'
+                allele_range = f'{lower}-{upper}'
             else:
-                allele_range = f'{homozygous_allele}-{homozygous_allele},{min(unique_alen)}-{max(unique_alen)}'
-            vcf_homozygous_writer(ref, Chrom, locus_key, global_loci_info, homozygous_allele, global_loci_variations, len(reads_of_homozygous), out, ALT, log_bool, '.', decomp, hallele_counter, male, allele_range, None)
+                allele_range = f'{lower}-{upper},{lower}-{upper}'
+
+            vcf_homozygous_writer(ref, Chrom, locus_key, global_loci_info, homozygous_allele, global_loci_variations, len(reads_of_homozygous), out, ALT, log_bool, '.', decomp, hallele_counter, male, allele_range, None, meth_prob)
             genotyped_loci += 1
         elif category == 2:
             state, skip_point = analyse_genotype(Chrom, locus_key, global_loci_info, global_loci_variations, global_read_variations, global_snp_positions, hallele_counter, ref, out, sorted_global_snp_list, snpQ, snpC, snpD, snpR, phasingR, maxR, max_limit, male, log_bool, decomp, amplicon)
@@ -69,6 +73,7 @@ def locus_processor(global_loci_keys, global_loci_ends, global_loci_variations, 
             ALT_seqs = []
             phased_read = []
             alen_list = []
+            meth_prob = []
             for hap_reads in haplotypes:
                 phased_read.append(len(hap_reads))
                 seqs = [seq for seq in [read_seqs[read_id][0] for read_id in hap_reads] if seq!='']
@@ -87,15 +92,19 @@ def locus_processor(global_loci_keys, global_loci_ends, global_loci_variations, 
                     allele_count[allele_length] = len(hap_reads)
                 else:
                     allele_count[str(allele_length)] = len(hap_reads)
-            allele_range = f'{min(alen_list[0])}-{max(alen_list[0])},{min(alen_list[1])}-{max(alen_list[1])}'
-            vcf_heterozygous_writer(Chrom, genotypes, lstart, global_loci_variations, lend, allele_count, len(reads_of_homozygous), global_loci_info, ref, out, '.', phased_read, 0, ALT_seqs, log_bool, 'HP', decomp, hallele_counter, allele_range, [None])
+
+                meth_prob.append(methylation_calc(hap_reads, global_loci_variations, locus_key))
+
+            lower1,upper1 = confidence_interval(alen_list[0])
+            lower2,upper2 = confidence_interval(alen_list[1])
+            allele_range = f'{lower1}-{upper1},{lower2}-{upper2}'
+
+            vcf_heterozygous_writer(Chrom, genotypes, lstart, global_loci_variations, lend, allele_count, len(reads_of_homozygous), global_loci_info, ref, out, '.', phased_read, 0, ALT_seqs, log_bool, 'HP', decomp, hallele_counter, allele_range, [None], meth_prob)
             genotyped_loci += 1
         else:
             if skip_point == 0:
-                # print('Locus skipped due to minimum number of supporting reads')
                 vcf_fail_writer(Chrom, locus_key, global_loci_info, ref, out, len(prev_reads), skip_point)
-            # else:
-            #     print('Locus skipped due to maximum number of supporting reads')
+
                 
         del global_loci_variations[locus_key]
         prev_locus_end = popped
@@ -103,7 +112,7 @@ def locus_processor(global_loci_keys, global_loci_ends, global_loci_variations, 
     return genotyped_loci, prev_locus_end
 
 
-def cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshold, outfile, snpQ, snpC, snpD, maxR, minR, snpR, phasingR, tidx, flank, log_bool, karyotype, decomp, hp_code, amplicon):
+def cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshold, outfile, snpQ, snpC, snpD, maxR, minR, snpR, phasingR, tidx, flank, log_bool, karyotype, decomp, hp_code, amplicon, meth_cutoff):
     # this function iterates through each contig and processes the genotypes for each locus
     tbx  = pysam.Tabixfile(tbx_file)
     bam  = pysam.AlignmentFile(bam_file, aln_format)
@@ -295,17 +304,6 @@ def cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshold, ou
 
                     loci_coords.append((locus_start - left_flank, locus_end + right_flank))
 
-                    # locus_key = f'{read_chrom}:{locus_start}-{locus_end}'
-                    # loci_keys.append(locus_key)
-                    # read_loci_variations[locus_key] = {'halen': locus_len, 'alen': locus_len, 'rlen': locus_len, 'seq': []}
-
-                    # if locus_key not in global_loci_variations:
-                    #     global_loci_variations[locus_key] = {'rlen': locus_len, 'reads': [], 'read_allele': {}, 'read_sequence': {}, 'read_tag':[]}
-                    #     global_loci_info[locus_key] = row
-
-                    #     # adding the locus key when it is first encountered
-                    #     global_loci_ends.append(locus_end)
-                    #     global_loci_keys.append(locus_key)
 
                 elif amplicon:
                     enough_soft_flank = True # Add the locus_key if this is True
@@ -350,7 +348,7 @@ def cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshold, ou
                     read_loci_variations[locus_key] = {'halen': locus_len, 'alen': locus_len, 'rlen': locus_len, 'seq': []}
 
                     if locus_key not in global_loci_variations:
-                        global_loci_variations[locus_key] = {'rlen': locus_len, 'reads': [], 'read_allele': {}, 'read_sequence': {}, 'read_tag':[]}
+                        global_loci_variations[locus_key] = {'rlen': locus_len, 'reads': [], 'read_allele': {}, 'read_sequence': {}, 'read_tag':[], 'read_meth': {}}
                         global_loci_info[locus_key] = row
 
                         # adding the locus key when it is first encountered
@@ -380,7 +378,7 @@ def cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshold, ou
 
             global_read_ends.append(read_end)
             global_read_indices.append(read_index)
-            global_read_variations[read_index] = {'s': read_start, 'e': read_end, 'snps': set(), 'dels': []}
+            global_read_variations[read_index] = {'s': read_start, 'e': read_end, 'snps': set(), 'dels': [], 'meth': []}
 
 
             if hp_code: hp = read.has_tag(hp_code)
@@ -402,16 +400,32 @@ def cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshold, ou
             if read.has_tag('cs'):
                 del cigar_tuples
                 cs_tag = read.get_tag('cs')
-                if amp_left_flank_list:
+                if amp_left_flank_list: # this chunk not needed for cigar_parse, as it already has ref object
                     init_amp_var.append(ref) # add ref object only if its amplicon mode
                 else:
                     init_amp_var.append(0)
-                parse_cstag(read_index, cs_tag, read_start, loci_keys, loci_coords, read_loci_variations, homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read_quality, cigar_one, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, init_amp_var)
+                meth_start, meth_end = parse_cstag(read_index, cs_tag, read_start, loci_keys, loci_coords, read_loci_variations, homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read_quality, cigar_one, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, init_amp_var)
+                read_modified_bases = list(read.modified_bases.items()) if read.modified_bases is not None else []
+                if len(read_modified_bases)>0:
+                    for mods in read_modified_bases:
+                        if (mods[0][0]=='C') and (mods[0][2]=='m'):
+                            read_meth_range = mm_tag_extract(mods[1], meth_start, meth_end, read_sequence, meth_cutoff)
+                            global_read_variations[read_index]['meth'] = read_meth_range
+
+                del read_modified_bases
                 del read_sequence
                 del read_quality
             else :
-                parse_cigar_tag(read_index, cigar_tuples, read_start, loci_keys, loci_coords, read_loci_variations,
+                meth_start, meth_end = parse_cigar_tag(read_index, cigar_tuples, read_start, loci_keys, loci_coords, read_loci_variations,
                                 homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read, ref, read_quality, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, init_amp_var)
+                read_modified_bases = list(read.modified_bases.items()) if read.modified_bases is not None else []
+                if len(read_modified_bases)>0:
+                    for mods in read_modified_bases:
+                        if (mods[0][0]=='C') and (mods[0][2]=='m'):
+                            read_meth_range = mm_tag_extract(mods[1], meth_start, meth_end, read_sequence, meth_cutoff)
+                            global_read_variations[read_index]['meth'] = read_meth_range
+
+                del read_modified_bases
                 del read_sequence
                 del read_quality
 
@@ -451,7 +465,7 @@ def cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshold, ou
     out.close()
 
 
-def mini_cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshold, outfile, snpQ, snpC, snpD, maxR, minR, snpR, phasingR, tidx, flank, log_bool, karyotype, decomp, hp_code, amplicon):
+def mini_cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshold, outfile, snpQ, snpC, snpD, maxR, minR, snpR, phasingR, tidx, flank, log_bool, karyotype, decomp, hp_code, amplicon, meth_cutoff):
     # this function iterates through each contig and processes the genotypes for each locus
     tbx  = pysam.Tabixfile(tbx_file)
     tbx2  = pysam.Tabixfile(tbx_file)
@@ -630,6 +644,9 @@ def mini_cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshol
                 else: # if its wgs mode and didnt covered the repeat than move to next read
                     continue
 
+                # if no repeats are covered by the read
+                if len(loci_coords) == 0: continue
+
                 if passed_loci:
                 
                     locus_key = f'{read_chrom}:{locus_start}-{locus_end}'
@@ -637,7 +654,7 @@ def mini_cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshol
                     read_loci_variations[locus_key] = {'halen': locus_len, 'alen': locus_len, 'rlen': locus_len, 'seq': []}
 
                     if locus_key not in global_loci_variations:
-                        global_loci_variations[locus_key] = {'rlen': locus_len, 'reads': [], 'read_allele': {}, 'read_sequence': {}, 'read_tag':[]}
+                        global_loci_variations[locus_key] = {'rlen': locus_len, 'reads': [], 'read_allele': {}, 'read_sequence': {}, 'read_tag':[], 'read_meth': {}}
                         global_loci_info[locus_key] = row
                         global_loci_ends.append(locus_end)
                         global_loci_keys.append(locus_key)
@@ -662,7 +679,7 @@ def mini_cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshol
 
                 global_read_ends.append(read_end)
                 global_read_indices.append(read_index)
-                global_read_variations[read_index] = {'s': read_start, 'e': read_end, 'snps': set(), 'dels': []}
+                global_read_variations[read_index] = {'s': read_start, 'e': read_end, 'snps': set(), 'dels': [], 'meth': []}
     
                 if hp_code: hp = read.has_tag(hp_code)
                 else: hp = False
@@ -686,12 +703,28 @@ def mini_cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshol
                         init_amp_var.append(ref) # add ref object only if its amplicon mode
                     else:
                         init_amp_var.append(0)
-                    parse_cstag(read_index, cs_tag, read_start, loci_keys, loci_coords, read_loci_variations, homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read_quality, cigar_one, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, init_amp_var)
+                    meth_start, meth_end = parse_cstag(read_index, cs_tag, read_start, loci_keys, loci_coords, read_loci_variations, homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read_quality, cigar_one, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, init_amp_var)
+                    read_modified_bases = list(read.modified_bases.items()) if read.modified_bases is not None else []
+                    if len(read_modified_bases)>0:
+                        for mods in read_modified_bases:
+                            if (mods[0][0]=='C') and (mods[0][2]=='m'):
+                                read_meth_range = mm_tag_extract(mods[1], meth_start, meth_end, read_sequence, meth_cutoff)
+                                global_read_variations[read_index]['meth'] = read_meth_range
+                    
+                    del read_modified_bases
                     del read_sequence
                     del read_quality
                 else :
-                    parse_cigar_tag(read_index, cigar_tuples, read_start, loci_keys, loci_coords, read_loci_variations,
+                    meth_start, meth_end = parse_cigar_tag(read_index, cigar_tuples, read_start, loci_keys, loci_coords, read_loci_variations,
                                 homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read, ref, read_quality, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, init_amp_var)
+                    read_modified_bases = list(read.modified_bases.items()) if read.modified_bases is not None else []
+                    if len(read_modified_bases)>0:
+                        for mods in read_modified_bases:
+                            if (mods[0][0]=='C') and (mods[0][2]=='m'):
+                                read_meth_range = mm_tag_extract(mods[1], meth_start, meth_end, read_sequence, meth_cutoff)
+                                global_read_variations[read_index]['meth'] = read_meth_range
+
+                    del read_modified_bases
                     del read_sequence
                     del read_quality
     
