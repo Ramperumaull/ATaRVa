@@ -27,7 +27,7 @@ def outside_locus(loci_coords, rpos):
     return True
 
 def parse_cigar_tag(read_index, cigar_tuples, read_start, loci_keys, loci_coords, read_loci_variations,
-                homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read, ref, read_quality, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, init_amp_var):
+                homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read, ref, read_quality, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, init_amp_var, same_read_loci):
     
     rpos = read_start   # NOTE: The coordinates are 1 based in SAM
     qpos = 0            # starts from 0 the sub string the read sequence in python
@@ -96,7 +96,7 @@ def parse_cigar_tag(read_index, cigar_tuples, read_start, loci_keys, loci_coords
                     print('Error in fetching in sequences of ref & read for substitution')
                     sys.exit()
                 for each_sub in sub_pos:
-                    if not outside_locus(loci_coords, each_sub):
+                    if not outside_locus(same_read_loci, each_sub):
                         continue
                     sub_nuc = query_sequence[each_sub]
                     Q_value = read_quality[qpos+each_sub]
@@ -122,7 +122,7 @@ def parse_cigar_tag(read_index, cigar_tuples, read_start, loci_keys, loci_coords
 
         elif cigar[0] == 8: # substitution (difference)
             X_tag = True
-            if (not male) and outside_locus(loci_coords, rpos) and (not hp) and (amplicon_variables==[]):
+            if (not male) and outside_locus(same_read_loci, rpos) and (not hp) and (amplicon_variables==[]):
                 sub_nuc = read_sequence[qpos]
                 Q_value = read_quality[qpos]
                 global_read_variations[read_index]['snps'].add(rpos)
@@ -144,7 +144,7 @@ def parse_cigar_tag(read_index, cigar_tuples, read_start, loci_keys, loci_coords
             if cigar_tuples[0][0] == 4: qpos = cigar_tuples[0][1]
             else: qpos=0
             MD_tag = read.get_tag('MD')
-            parse_mdtag(MD_tag, qpos, read_start, global_read_variations, global_snp_positions, read_index, read_quality, read_sequence, sorted_global_snp_list, insertion_point, loci_coords, male, hp, amplicon_variables)
+            parse_mdtag(MD_tag, qpos, read_start, global_read_variations, global_snp_positions, read_index, read_quality, read_sequence, sorted_global_snp_list, insertion_point, same_read_loci, male, hp, amplicon_variables)
 
     tot_loc = len(loci_keys) - 1 # 0-based counting
     meth_start = None; meth_end = None # repeat sequence coordinates in the read for meth-calc

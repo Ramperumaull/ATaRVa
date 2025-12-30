@@ -246,7 +246,7 @@ def analyse_genotype(contig, locus_key, global_loci_info,
             if len(reads_of_nuc) == 0: continue
             coverage.add(len(reads_of_nuc))
 
-            if (sum([global_snp_positions[pos]['Qval'][read_idx] for read_idx in reads_of_nuc])/len(reads_of_nuc)) <= 13:
+            if (sum([global_snp_positions[pos]['Qval'][read_idx] for read_idx in reads_of_nuc])/len(reads_of_nuc)) <= snpQ:
                 c_point=1
                 break
         if (len(coverage)==0) or (c_point==1): continue

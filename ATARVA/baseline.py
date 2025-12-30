@@ -195,7 +195,7 @@ def cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshold, ou
 
         prev_reads = set()
         sorted_global_snp_list = []
-        sorted_global_ins_rpos_set = set()
+        sorted_global_ins_rpos_set = set() # tracking the repeat insertion positions globally to avoiding same insertion into multiple loci
 
         read_index = 0
 
@@ -377,9 +377,7 @@ def cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshold, ou
             read_quality = read.query_qualities
             cigar_tuples = read.cigartuples
             read_sequence = read.query_sequence
-            base_quals = read.query_qualities
-            mean_base_qual = int(np.mean(base_quals)) if base_quals else 0
-            del base_quals
+            mean_base_qual = int(np.mean(read_quality)) if read_quality else 0
 
             tmp_qpos = 0
             for cigar in cigar_tuples:
@@ -421,7 +419,7 @@ def cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshold, ou
                     init_amp_var.append(ref) # add ref object only if its amplicon mode
                 else:
                     init_amp_var.append(0)
-                meth_start, meth_end = parse_cstag(read_index, cs_tag, read_start, loci_keys, loci_coords, read_loci_variations, homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read_quality, cigar_one, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, init_amp_var)
+                meth_start, meth_end = parse_cstag(read_index, cs_tag, read_start, loci_keys, loci_coords, read_loci_variations, homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read_quality, cigar_one, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, init_amp_var, loci_coords)
                 read_modified_bases = list(read.modified_bases.items()) if read.modified_bases is not None else []
                 if len(read_modified_bases)>0:
                     for mods in read_modified_bases:
@@ -435,7 +433,7 @@ def cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshold, ou
                 del read_quality
             else :
                 meth_start, meth_end = parse_cigar_tag(read_index, cigar_tuples, read_start, loci_keys, loci_coords, read_loci_variations,
-                                homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read, ref, read_quality, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, init_amp_var)
+                                homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read, ref, read_quality, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, init_amp_var, loci_coords)
                 read_modified_bases = list(read.modified_bases.items()) if read.modified_bases is not None else []
                 if len(read_modified_bases)>0:
                     for mods in read_modified_bases:
@@ -553,21 +551,7 @@ def mini_cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshol
 
         if not dwrite: tqdm.write(f"> {Chrom} {Start} {End} Total loci =  {tot_loci_list[cidx]}")
 
-
-        global_snp_positions = dict()       # tracking the encountered SNPs
-        global_read_variations = {}         # tracking the variations on each read
-        global_loci_variations = {}         # tracking the variation for each locus
-        global_loci_info = {}               # saving the information of each loci
-
-        # tracking the loci
-        global_loci_ends = []; global_loci_keys    = []        
-        global_read_ends = []; global_read_indices = []
-
-        prev_reads = set()
-        sorted_global_snp_list = []
-        sorted_global_ins_rpos_set = set()
-
-        read_index = 0
+        sorted_global_ins_rpos_set = set() # tracking the repeat insertion positions globally to avoiding same insertion into multiple loci
 
         for row in tbx.fetch(Chrom, Start[0], End[1]):
 
@@ -583,6 +567,19 @@ def mini_cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshol
             elif locus_start<Start[0]:
                 continue
             elif locus_start>=End[0]: break
+
+            global_snp_positions = dict()       # tracking the encountered SNPs
+            global_read_variations = {}         # tracking the variations on each read
+            global_loci_variations = {}         # tracking the variation for each locus
+            global_loci_info = {}               # saving the information of each loci
+
+            # tracking the loci
+            global_loci_ends = []; global_loci_keys    = []        
+            global_read_ends = []; global_read_indices = []
+
+            prev_reads = set()
+            sorted_global_snp_list = []
+            read_index = 0
             
            
             for read in bam.fetch(Chrom, int(row[1]), int(row[2])):
@@ -611,6 +608,7 @@ def mini_cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshol
 
                 passed_loci = False # if the loci passed in normal or amplicon mode, then write it in global variables
                 
+                same_read_loci = [] # Loci covered by the same read
                 # if only the read completely covers the repeat
                 if ( locus_start >= read_start ) & ( locus_end <= read_end ):
                     passed_loci = True
@@ -620,6 +618,11 @@ def mini_cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshol
                     right_flank_list.append(right_flank)
 
                     loci_coords.append((locus_start - left_flank, locus_end + right_flank))
+
+                    for row2 in tbx2.fetch(read_chrom, read_start, read_end):
+                        row2 = row2.split('\t')
+                        locus2_start = int(row2[1]);  locus2_end = int(row2[2])
+                        same_read_loci.append((locus2_start, locus2_end))
 
 
                 elif amplicon:
@@ -683,9 +686,7 @@ def mini_cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshol
                 read_quality = read.query_qualities
                 cigar_tuples = read.cigartuples
                 read_sequence = read.query_sequence
-                base_quals = read.query_qualities
-                mean_base_qual = int(np.mean(base_quals)) if base_quals else 0
-                del base_quals
+                mean_base_qual = int(np.mean(read_quality)) if read_quality else 0
 
                 tmp_qpos = 0
                 for cigar in cigar_tuples:
@@ -725,7 +726,7 @@ def mini_cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshol
                         init_amp_var.append(ref) # add ref object only if its amplicon mode
                     else:
                         init_amp_var.append(0)
-                    meth_start, meth_end = parse_cstag(read_index, cs_tag, read_start, loci_keys, loci_coords, read_loci_variations, homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read_quality, cigar_one, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, init_amp_var)
+                    meth_start, meth_end = parse_cstag(read_index, cs_tag, read_start, loci_keys, loci_coords, read_loci_variations, homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read_quality, cigar_one, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, init_amp_var, same_read_loci)
                     read_modified_bases = list(read.modified_bases.items()) if read.modified_bases is not None else []
                     if len(read_modified_bases)>0:
                         for mods in read_modified_bases:
@@ -739,7 +740,7 @@ def mini_cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshol
                     del read_quality
                 else :
                     meth_start, meth_end = parse_cigar_tag(read_index, cigar_tuples, read_start, loci_keys, loci_coords, read_loci_variations,
-                                homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read, ref, read_quality, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, init_amp_var)
+                                homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read, ref, read_quality, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, init_amp_var, same_read_loci)
                     read_modified_bases = list(read.modified_bases.items()) if read.modified_bases is not None else []
                     if len(read_modified_bases)>0:
                         for mods in read_modified_bases:
@@ -767,26 +768,13 @@ def mini_cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshol
 
                 genotype_status = locus_processor(global_loci_keys, global_loci_ends, global_loci_variations, global_read_variations, global_snp_positions, prev_reads, sorted_global_snp_list, maxR, minR, ref, Chrom, global_loci_info, out, snpQ, snpC, snpD, snpR, phasingR, tbx2, flank, sorted_global_ins_rpos_set, log_bool, logger, male, prev_locus_end, decomp, hp_code, amplicon, somatic)
                 genotyped_loci_count += genotype_status[0]
-                prev_locus_end = genotype_status[1]
+                prev_locus_end = 0
                 progress_bar.update(1)
 
-            while global_read_ends:
+            if global_read_ends:
 
-                popped = global_read_ends.pop(0)
-                rindex = global_read_indices.pop(0)
-                if rindex in global_read_variations:
-                    for pos in global_read_variations[rindex]['snps']:
-                        if pos in global_snp_positions:
-                            global_snp_positions[pos]['cov'] -= 1
-                            
-                    del_snps = [pos for pos in global_snp_positions if global_snp_positions[pos]['cov'] == 0]
-                    for snp in del_snps:
-                        del global_snp_positions[snp]
-                        sorted_global_snp_list.remove(snp)
-                    del global_read_variations[rindex]
-                    del del_snps
-
-                    if rindex in prev_reads: prev_reads.remove(rindex)
+                popped = global_read_ends[-1]#.pop(0)
+                global_read_ends = []
                         
                 del_ins_pos_idx = 0
                 list_rpos = sorted(sorted_global_ins_rpos_set)

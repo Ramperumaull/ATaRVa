@@ -48,7 +48,8 @@ def parse_args():
     optional.add_argument('--haplotag', type=str, metavar='<STR>', default=None, help='use haplotagged information for phasing. eg: [HP]. [default: None]')
     optional.add_argument('--decompose', action='store_true', help="write the motif-decomposed sequence to the vcf. [default: False]")
     optional.add_argument('--amplicon', action='store_true', help="genotype mode for targeted-sequenced samples. In this mode, the default values for `max-reads` and `flank` values are 1000 and 20 respectively. [default: False]")
-    optional.add_argument('--somatic', action='store_true', help="genotype mode for capturing mosaicism in samples. In this mode, default `max-reads` and `flank` values are same as amplicon mode. [default: False]")
+    optional.add_argument('--read-wise', action='store_true', help="Read-wise genotyping mode for BED file with dense regions. [default: False]")
+    optional.add_argument('--loci-wise', action='store_true', help="Loci-wise genotyping mode instead of Read-wise for BED file with sparse regions. [default: False]")
     optional.add_argument('-log', '--debug_mode', action='store_true', help="write the debug messages to log file. [default: False]")
     optional.add_argument('-v', '--version', action='version', version=f'ATaRVa version {__version__}')
     
@@ -169,7 +170,7 @@ def main():
 
     maxR = args.max_reads
     flank_length = args.flank
-    if args.amplicon or args.somatic:
+    if args.amplicon:
         if args.max_reads is None: maxR = 1000
         if args.flank is None: flank_length = 20
     else:
@@ -242,23 +243,20 @@ def main():
                 # sys.exit()
         aln_file.close()
 
-        amplicon = False
+        amplicon = args.amplicon
         somatic = False
         if args.amplicon:
             srs = True
-            amplicon = True
             print('Processing in amplicon mode...')
-        elif args.somatic:
+        elif (args.read_wise and args.loci_wise):
+            print('Error: Choose either Read-wise or Loci-wise genotyping mode!!')
+            sys.exit()
+        elif args.loci_wise:
             srs = True
-            somatic = True
-            print('Processing in somatic mode...')
-            amplicon = True
+            print('Processing in Loci-wise genotyping mode...')
         else:
             srs = False
-            if length/count < 350:
-                print('Short reads detected... Processing in short-read mode.')
-                srs = True
-            else: print('Long reads detected... Processing in long-read mode.')
+            print('Processing in Read-wise genotyping mode...')
 
         if not args.vcf:
             out_file = f'{".".join(each_bam.split("/")[-1].split(".")[:-1])}'
