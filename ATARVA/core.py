@@ -9,7 +9,7 @@ import sys, os, gzip
 import pysam
 import timeit as ti
 import argparse as ap
-from multiprocessing import Process
+from multiprocessing import Process, Pool
 from tqdm import tqdm
 
 from ATARVA.version import __version__
@@ -263,30 +263,48 @@ def main():
         elif mbso or (out_file[-1]=='/'):
             out_file = out_file + '_' + ".".join(each_bam.split("/")[-1].split('.')[:-1])
 
+        # if threads > 1:
+        #     thread_pool = list()
+        #     # initializing threads
+        #     for tidx in range(threads):
+        #         contig = fetcher[tidx]
+        #         if srs:
+        #             thread_x = Process(
+        #                 target = mini_cooper,
+        #                 args = (each_bam, args.regions, args.fasta, aln_format, contig, args.map_qual, out_file, args.snp_qual, args.snp_count, args.snp_dist, maxR, args.min_reads, args.snp_read, args.phasing_read, tidx, flank_length, args.debug_mode, karyotype_list[kidx], args.decompose, args.haplotag, amplicon, args.meth_prob, somatic))
+        #         else:
+        #             thread_x = Process(
+        #                 target = cooper,
+        #                 args = (each_bam, args.regions, args.fasta, aln_format, contig, args.map_qual, out_file, args.snp_qual, args.snp_count, args.snp_dist, maxR, args.min_reads, args.snp_read, args.phasing_read, tidx, flank_length, args.debug_mode, karyotype_list[kidx], args.decompose, args.haplotag, amplicon, args.meth_prob, somatic))
+        #         thread_x.start()
+        #         thread_pool.append(thread_x)
+
+
+        #     # joining Threads 
+        #     for thread_x in tqdm(thread_pool, desc="Processing ", ascii="_>", ncols=75, bar_format="{l_bar}{bar}{n_fmt}/{total_fmt}"):
+        #         thread_x.join()
+        #         # progress_bar.update(1)
+
+        #     # emptying thread_pool
+        #     thread_pool.clear()
         if threads > 1:
-            thread_pool = list()
-            # initializing threads
-            for tidx in range(threads):
-                contig = fetcher[tidx]
-                if srs:
-                    thread_x = Process(
-                        target = mini_cooper,
-                        args = (each_bam, args.regions, args.fasta, aln_format, contig, args.map_qual, out_file, args.snp_qual, args.snp_count, args.snp_dist, maxR, args.min_reads, args.snp_read, args.phasing_read, tidx, flank_length, args.debug_mode, karyotype_list[kidx], args.decompose, args.haplotag, amplicon, args.meth_prob, somatic))
-                else:
-                    thread_x = Process(
-                        target = cooper,
-                        args = (each_bam, args.regions, args.fasta, aln_format, contig, args.map_qual, out_file, args.snp_qual, args.snp_count, args.snp_dist, maxR, args.min_reads, args.snp_read, args.phasing_read, tidx, flank_length, args.debug_mode, karyotype_list[kidx], args.decompose, args.haplotag, amplicon, args.meth_prob, somatic))
-                thread_x.start()
-                thread_pool.append(thread_x)
-
-
-            # joining Threads 
-            for thread_x in tqdm(thread_pool, desc="Processing ", ascii="_>", ncols=75, bar_format="{l_bar}{bar}{n_fmt}/{total_fmt}"):
-                thread_x.join()
-                # progress_bar.update(1)
-
-            # emptying thread_pool
-            thread_pool.clear()
+            def update(_):
+                pbar.update()
+            pbar = tqdm(total=threads, desc="Processing ", ascii="_>", ncols=75, bar_format="{l_bar}{bar}{n_fmt}/{total_fmt}")
+            with Pool(processes=threads) as pool:
+                for tidx in range(threads):
+                    contig = fetcher[tidx]
+                    if srs:
+                        pool.apply_async(mini_cooper, 
+                                         args=(each_bam, args.regions, args.fasta, aln_format, contig, args.map_qual, out_file, args.snp_qual, args.snp_count, args.snp_dist, maxR, args.min_reads, args.snp_read, args.phasing_read, tidx, flank_length, args.debug_mode, karyotype_list[kidx], args.decompose, args.haplotag, amplicon, args.meth_prob, somatic),
+                                         callback=update)
+                    else:
+                        pool.apply_async(cooper, 
+                                         args=(each_bam, args.regions, args.fasta, aln_format, contig, args.map_qual, out_file, args.snp_qual, args.snp_count, args.snp_dist, maxR, args.min_reads, args.snp_read, args.phasing_read, tidx, flank_length, args.debug_mode, karyotype_list[kidx], args.decompose, args.haplotag, amplicon, args.meth_prob, somatic),
+                                         callback=update)
+                pool.close()
+                pool.join()
+            pbar.close()
         
             out = open(f'{out_file}.vcf', 'a')
             print('Concatenating thread outputs!', file=sys.stderr)
