@@ -1,5 +1,5 @@
 # ATaRVa - a tandem repeat genotyper
-![Badge-PyPI](https://img.shields.io/badge/PyPI-v0.4.1-brightgreen)
+![Badge-PyPI](https://img.shields.io/badge/PyPI-v0.5.0-brightgreen)
 ![Badge-License](https://img.shields.io/badge/License-MIT-blue)
 
 <p align=center>
@@ -403,7 +403,7 @@ $ docker run -i -t --rm -v /path_of_necessary_files/:/folder_name atarva:latest 
 In all the above examples, the output of ATaRVa is saved to input.vcf unless -o is specified.
 
 ## Changelog
-### v0.4.1
+### v0.5.0
 * Changed the VCF-START column into 1-based coordinate system
 * Included `START` tag in VCF-INFO column with 0-based coordinate system
 * Added `MR` tags in the VCF_SAMPLE column to report the supporting read count for mean methylation level
