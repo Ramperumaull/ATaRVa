@@ -1,8 +1,51 @@
 from collections import Counter
 from bitarray import bitarray
 import regex as re
+import warnings
 
 divisor_dict = {2:[1], 3:[1], 4:[1,2], 5:[1], 6:[1,2,3], 7:[1], 8:[1,2,4], 9:[1,3], 10:[1,2,5]}
+
+cyclic_motif_registry = {}
+
+def is_valid_repeat_block(s):
+
+    if not s.startswith('('):
+        return False
+    if ')' not in s:
+        return False
+    close = s.find(')')
+    if close <= 1:
+        return False
+    return s[close+1:].isdigit()
+
+
+def get_repeat_components(s):
+
+    close = s.index(')')
+    motif = s[1:close]
+    count = int(s[close+1:])
+    return motif, count
+
+def get_cyclic_variants(motif):
+    n = len(motif)
+    return [motif[i:] + motif[:i] for i in range(n)]
+
+def get_canonical_motif(motif):
+    return min(get_cyclic_variants(motif))
+
+def register_and_get_motif(motif):
+    if not motif or len(motif) == 0:
+        return motif
+    
+    canonical = get_canonical_motif(motif)
+    
+    if canonical not in cyclic_motif_registry:
+        cyclic_motif_registry[canonical] = motif
+        return motif
+    else:
+        return cyclic_motif_registry[canonical]
+
+
 def convert_to_bitset(seq):
     lbit = {'A': '0', 'C': '0', 'G': '1', 'T': '1', 'N': '1'}
     rbit = {'A': '0', 'C': '1', 'G': '0', 'T': '1', 'N': '1'}
@@ -96,37 +139,66 @@ def get_most_frequent_motif(sequence, motif_size, motif):
             most_common.append(each_motif)
 
     primary_motif = most_common[0] if most_common else sequence
+    primary_motif = register_and_get_motif(primary_motif)
     secondary_motif = most_common[1] if len(most_common) > 1 else None
 
     return primary_motif, secondary_motif
     
-def get_canonical_motif(motif):
-    return min(motif[i:] + motif[:i] for i in range(len(motif)))
+#def get_canonical_motif(motif):
+    #return min(motif[i:] + motif[:i] for i in range(len(motif)))
 
-def max_match(shift_list, gap_regions):
+def max_match(shift_list, gap_regions, motif_size):
     gap_wise_shift = []
     
-    for each_gap in gap_regions:
-        max_matches = 0
+    for start, end in gap_regions:
+        gap_length = end - start
+        
+        candidate_shifts = []
+        
+        for idx, shift_pattern in enumerate(shift_list):
+            if not shift_pattern.any():
+                continue
+                
+            shift_value = idx + 1
+            
+            if shift_value * 2 > gap_length:  
+                continue
+                
+            sub_pattern = shift_pattern[start:end]
+            if len(sub_pattern) == 0:
+                continue
+            
+            total_matches = sub_pattern.count()
+            
+            pattern_str = sub_pattern.to01()
+            max_consecutive = max(len(run) for run in pattern_str.split('0')) if '1' in pattern_str else 0
+            ideal_consecutive = max_consecutive + shift_value
+            
+            # Score based on multiple factors
+            #score = (match_density * 0.4) + (max_consecutive / gap_length * 0.4) + (1.0 / shift_value * 0.2)
+            
+            candidate_shifts.append((shift_value, ideal_consecutive, total_matches))
+        
+        candidate_shifts.sort(key=lambda x: x[1], reverse=True)
+        
         best_shift = -1
-        for idx, each_shift in enumerate(shift_list):
-            if each_shift==0: continue
-            each_shift = each_shift[each_gap[0]: each_gap[1]]
-            count = 0
-            count += each_shift.count() if each_shift.count() > (idx+1) else 0
-    
-            if count > max_matches:
-                max_matches = count
-                best_shift = idx+1
+               
+        for shift_value, ideal_consecutive, total_matches in candidate_shifts:
+            #repeat_runs = max_consecutive / shift_value
+            if ( ideal_consecutive / shift_value) >= 2.0:
+                best_shift = shift_value
+                break
+        
         gap_wise_shift.append(best_shift)
-    return gap_wise_shift
-
     
-slide_threshold = {1:1, 2:2, 3:3, 4:4, 5:5, 6:6, 7:7, 8:8}
+    return gap_wise_shift
+    
+slide_threshold = {1:1, 2:2, 3:3, 4:4, 5:5, 6:6, 7:7, 8:8, 9:9, 10:10}
 def window_scan(shift_list, motif_size, sequence, sequential_decomp, sequential_part, overall_boundary, current_gap):
     shift_seq = shift_list[motif_size-1]#[current_gap[0]:current_gap[1]]
 
     slide_size = slide_threshold.get(motif_size, 8)
+    # slide_size = motif_size
     
     i=current_gap[0]
     start = i; end = current_gap[1]
@@ -154,7 +226,7 @@ def window_scan(shift_list, motif_size, sequence, sequential_decomp, sequential_
             i+=motif_size
 
             continue
-        # i+=slide_size
+
         else:
             i+=1
             if not initial:
@@ -187,7 +259,9 @@ def window_scan(shift_list, motif_size, sequence, sequential_decomp, sequential_
 def shift_decomp(seq, motif_size, motif, boundary, state):
     decomposed_parts = []
     count = 1  
-    primary_motif, secondary_motif = get_most_frequent_motif(seq, motif_size, motif)
+    
+    primary_motif, _ = get_most_frequent_motif(seq, motif_size, motif)
+    
     positions = kmp_search_non_overlapping(seq, primary_motif)
     
     if not positions:
@@ -234,9 +308,14 @@ def decomposer(tuple_bound, sequence, best_shift, sequential_decomp, sequential_
 
 def gap_boundaries(overall_boundary, seq_len, chunk_state):
     overall_boundary = sorted(overall_boundary)
-    if chunk_state:
-        chunk_boundary = overall_boundary[0][0]
-        chunk_boundary_end = overall_boundary[-1][1]
+
+    if chunk_state and len(overall_boundary)>=1:
+        if len(overall_boundary)>1:
+            chunk_boundary = overall_boundary[0][0]
+            chunk_boundary_end = overall_boundary[-1][1]
+        else:
+            chunk_boundary = overall_boundary[0][0]
+            chunk_boundary_end = seq_len
     else:
         chunk_boundary = 0
         chunk_boundary_end = seq_len
@@ -246,12 +325,14 @@ def gap_boundaries(overall_boundary, seq_len, chunk_state):
     for id,occupied_reg in enumerate(overall_boundary):
     
         if id == 0:
+            current_end = occupied_reg[1]
             if occupied_reg[0] != chunk_boundary:
                 gap_regions.append([chunk_boundary, occupied_reg[0]])
             elif len(overall_boundary) == 1:
                 if occupied_reg[1] <= (seq_len-1):
                     gap_regions.append([occupied_reg[1],seq_len])
-            current_end = occupied_reg[1]
+                    current_end = seq_len
+            
     
         else:
             if occupied_reg[0] != current_end:
@@ -259,12 +340,16 @@ def gap_boundaries(overall_boundary, seq_len, chunk_state):
             current_end = occupied_reg[1]
 
             
-    if current_end != chunk_boundary_end:
+    if current_end < chunk_boundary_end:
         gap_regions.append([current_end, chunk_boundary_end])
-        
+
     return gap_regions
 
 def motif_decomposition(sequence, motif_size):
+
+    global cyclic_motif_registry
+    cyclic_motif_registry = {}
+    
 
     shift_list = shift_and_match(sequence)
     overall_boundary = []
@@ -280,7 +365,7 @@ def motif_decomposition(sequence, motif_size):
         if (rounds==0) and (motif_size==1):
             gap_wise_shift = [1]
         else:
-            gap_wise_shift = max_match(shift_list, gap_regions)
+            gap_wise_shift = max_match(shift_list, gap_regions, motif_size)
 
         for index, best_shift in enumerate(gap_wise_shift):
             
@@ -290,8 +375,10 @@ def motif_decomposition(sequence, motif_size):
                 previous_ovbound = overall_boundary.copy()
                 window_scan(shift_list, best_shift, sequence, sequential_decomp, sequential_part, overall_boundary, current_gap)
                 if previous_ovbound == overall_boundary:
+ 
                     c1 = current_gap[0]; c2 = current_gap[1]
                     covered_chunks = [i for i in overall_boundary if (i[0]>=c1 and i[1]<=c2) or ((i[1]==c1) or (i[0]==c2))]
+
                     if covered_chunks == []:
                         sequential_part[c1 : c2] = 0
                         sequential_decomp[c1] = [sequence[c1 : c2]]
@@ -302,7 +389,7 @@ def motif_decomposition(sequence, motif_size):
                     if not gap_in_chunks:
                         if (c1 == 0) or (c2 == seq_len):
                             gap_in_chunks = [current_gap]
-                    
+
                     for each_gap in gap_in_chunks:
                         sequential_part[each_gap[0] : each_gap[1]] = 0
                         for shift_id in range(len(shift_list)):
@@ -318,14 +405,14 @@ def motif_decomposition(sequence, motif_size):
                 sequential_part[current_gap[0] : current_gap[1]] = 0
                 overall_boundary.append([current_gap[0] , current_gap[1]])
 
-
         gap_regions = gap_boundaries(overall_boundary, seq_len, False)
 
         rounds += 1
         if rounds >= 20 :
-            break
+            warnings.warn("Max rounds reached; decomposition may be incomplete")
         
     fseq = [i for k,v in sorted(sequential_decomp.items(), key = lambda x : x[0]) for i in v]
+
     if len(fseq)==1:
         if '(' in fseq[0]:
             non_rep_percent = 0
@@ -336,71 +423,218 @@ def motif_decomposition(sequence, motif_size):
 
     return ["-".join(fseq), non_rep_percent]
 
-def refine_decomposition(split_seq, bed_motif, seq_len):
+def refine_decomposition(fseq, motif_size, seq_len):
+
+    
     new_seq_list = []
     non_repeat = 0
-    for i in split_seq:
-        if '(' in i: # refining only the decomposed parts
-            end_point = i.index(')')
-            count = int(i[end_point+1:])
-            tmp_motif = i[1:end_point]
-            motif_len = len(tmp_motif)
-            if len(set(tmp_motif)) == 1:
-                new_seq_list.append(f'({tmp_motif[0]}){motif_len*count}')
-            elif motif_len <= bed_motif: # skip if the current motif is already smaller than the bed motif
-                new_seq_list.append(i)
-            elif (motif_len!=1) & (motif_len>bed_motif) & (motif_len%bed_motif == 0): # procedd only for bigger motifs and divisible by bed motif
-                for div in divisor_dict[motif_len]:
-                    check_motif = tmp_motif[: div]
-                    e = 0
-                    pattern = "(" + check_motif + "){e<=" + str(e) + "}"
-                    matches = re.finditer(pattern, tmp_motif, overlapped=False) # check for repetitive motif within bigger motif
-                    tot_rep = sum(1 for _ in matches)
-                    if tot_rep*len(check_motif) == motif_len:
-                        motif_count = tot_rep*count
-                        new_seq_list.append(f'({check_motif}){motif_count}')
-                        break
+    
+    for i in fseq:
+        if '(' in i and ')' in i:  # refining only the decomposed parts
+            try:
+                end_point = i.index(')')
+                count = int(i[end_point+1:])
+                tmp_motif = i[1:end_point]
+                motif_len = len(tmp_motif)
+                
+                if len(set(tmp_motif)) == 1:
+                    new_seq_list.append(f'({tmp_motif[0]}){motif_len*count}')
+                
+                elif (motif_len % 2 == 0):  
+                    mid_point = int(motif_len/2)
+                    if tmp_motif[0: mid_point] == tmp_motif[mid_point:]:
+                        check_motif = tmp_motif[0: mid_point]
+                        new_seq_list.append(f'({check_motif}){count*2}')
+                    else:
+                        new_seq_list.append(i)
+                        
+                elif motif_len <= motif_size:  
+                    new_seq_list.append(i)
+                        
+                elif (motif_len != 1) and (motif_len > motif_size) and (motif_len % motif_size == 0):
+                    for div in divisor_dict.get(motif_len, [1]):
+                        check_motif = tmp_motif[:div]
+                        e = 0
+                        pattern = "(" + check_motif + "){e<=" + str(e) + "}"
+                        matches = re.finditer(pattern, tmp_motif, overlapped=False)
+                        tot_rep = sum(1 for _ in matches)
+                        if tot_rep * len(check_motif) == motif_len:
+                            motif_count = tot_rep * count
+                            new_seq_list.append(f'({check_motif}){motif_count}')
+                            break
+                    else:
+                        new_seq_list.append(i)
                 else:
                     new_seq_list.append(i)
+            except (ValueError, IndexError):
+                new_seq_list.append(i)
+        else:
+
+            segment = i
+            decomposed_segment = []
+            
+            pos = 0
+            while pos < len(segment):
+                found_repeat = False
+                
+                for test_len in range(motif_size, min(6, len(segment) - pos) + 1):
+                    if test_len == 0:
+                        continue
+                    
+                    test_motif = segment[pos:pos+test_len]
+                    
+                    count = 1
+                    next_pos = pos + test_len
+                    
+                    while next_pos + test_len <= len(segment) and segment[next_pos:next_pos+test_len] == test_motif:
+                        count += 1
+                        next_pos += test_len
+                    
+                    if count >= 2:
+                        decomposed_segment.append(f'({test_motif}){count}')
+                        pos = next_pos
+                        found_repeat = True
+                        break
+                
+                if not found_repeat:
+
+                    remaining_len = len(segment) - pos
+                    if remaining_len <= motif_size:
+                        decomposed_segment.append(segment[pos:])
+                        break
+                    else:
+                        chunk_size = min(motif_size, remaining_len)
+                        decomposed_segment.append(segment[pos:pos+chunk_size])
+                        pos += chunk_size
+            
+            if len(decomposed_segment) > 1 or (len(decomposed_segment) == 1 and '(' in decomposed_segment[0]):
+                new_seq_list.extend(decomposed_segment)
             else:
                 new_seq_list.append(i)
-                    
-        else:
-            new_seq_list.append(i)
-            non_repeat += len(i)
-
-    # check for breaks of identical nearby decompositions
+                non_repeat += len(i)
+    
     dlen = len(new_seq_list) - 1
     loc = 0
     refined_list = []
+    
     while loc < dlen:
         current = new_seq_list[loc]
-        if '(' not in current: # skip if its non repeatitive part
-            refined_list.append(current)
-            loc+=1
-            if loc==dlen: refined_list.append(new_seq_list[-1])
-            continue
-        next = new_seq_list[loc+1]
-        if '(' not in next: # check if succeding part is non repetitive
-            refined_list.append(current)
-            refined_list.append(next)
-            loc+=2
-            if loc==dlen: refined_list.append(new_seq_list[-1])
-            continue
+        next_item = new_seq_list[loc+1]
 
-        e1 = current.index(')')
-        e2 = next.index(')')
-        tmp1 = current[1:e1]
-        tmp2 = next[1:e2]
-        if tmp1==tmp2: # combine if both are identical
-            combined_count = int(current[e1+1:]) + int(next[e2+1:])
-            refined_list.append(f'({tmp1}){combined_count}')
-            loc+=2
+        current_state = 1 if '(' in current and ')' in current else 0
+        next_state = 1 if '(' in next_item and ')' in next_item else 0
+        
+        if current_state == 1 and next_state == 1:
+            try:
+                e1 = current.index(')')
+                e2 = next_item.index(')')
+                tmp1 = current[1:e1]
+                tmp2 = next_item[1:e2]
+                
+                if tmp1 == tmp2:  
+                    combined_count = int(current[e1+1:]) + int(next_item[e2+1:])
+                    refined_list.append(f'({tmp1}){combined_count}')
+                    loc += 2
+                else:
+                    refined_list.append(current)
+                    loc += 1
+            except (ValueError, IndexError):
+                refined_list.append(current)
+                loc += 1
+                
+        elif current_state == 1 and next_state == 0:  
+            try:
+                e1 = current.index(')')
+                tmp1 = current[1:e1]
+                
+                if len(next_item) >= len(tmp1) and tmp1 == next_item[0:len(tmp1)]:
+                    combined_count = int(current[e1+1:]) + 1
+                    refined_list.append(f'({tmp1}){combined_count}')
+                    
+                    remaining = next_item[len(tmp1):]
+                    if remaining:
+                        refined_list.append(remaining)
+                    
+                    loc += 2
+                elif tmp1 == next_item:  
+                    combined_count = int(current[e1+1:]) + 1
+                    refined_list.append(f'({tmp1}){combined_count}')
+                    loc += 2
+                else:
+                    refined_list.append(current)
+                    loc += 1
+            except (ValueError, IndexError):
+                refined_list.append(current)
+                loc += 1
+                
+        elif current_state == 0 and next_state == 1:  
+            try:
+                e2 = next_item.index(')')
+                tmp2 = next_item[1:e2]
+                
+                if len(current) >= len(tmp2) and tmp2 == current[len(current)-len(tmp2):]:
+                    combined_count = int(next_item[e2+1:]) + 1
+                    
+                    beginning = current[:len(current)-len(tmp2)]
+                    if beginning:
+                        refined_list.append(beginning)
+                    
+                    refined_list.append(f'({tmp2}){combined_count}')
+                    loc += 2
+                elif tmp2 == current:  
+                    combined_count = int(next_item[e2+1:]) + 1
+                    refined_list.append(f'({tmp2}){combined_count}')
+                    loc += 2
+                else:
+                    refined_list.append(current)
+                    loc += 1
+            except (ValueError, IndexError):
+                refined_list.append(current)
+                loc += 1
+                
+        else:  
+            refined_list.append(current + next_item)
+            loc += 2
+    
+    if loc == dlen:
+        refined_list.append(new_seq_list[loc])
+    
+    final_merged = []
+    i = 0
+    while i < len(refined_list):
+        if i < len(refined_list) - 1:
+            current = refined_list[i]
+            next_item = refined_list[i+1]
+            
+            if '(' in current and ')' in current and '(' in next_item and ')' in next_item:
+                try:
+                    e1 = current.index(')')
+                    e2 = next_item.index(')')
+                    tmp1 = current[1:e1]
+                    tmp2 = next_item[1:e2]
+                    
+                    if tmp1 == tmp2:
+                        combined_count = int(current[e1+1:]) + int(next_item[e2+1:])
+                        final_merged.append(f'({tmp1}){combined_count}')
+                        i += 2
+                        continue
+                except (ValueError, IndexError):
+                    pass
+        
+        final_merged.append(refined_list[i])
+        i += 1
+    
+    non_repeat_len = 0
+    for elem in final_merged:
+        if '(' in elem and ')' in elem:
+            try:
+                end_point = elem.index(')')
+                pass
+            except ValueError:
+                non_repeat_len += len(elem)
         else:
-            refined_list.append(current)
-            loc+=1
-            if loc==dlen: refined_list.append(next)
-
-    non_rep_percent = round(non_repeat/seq_len, 2)
-
-    return [refined_list, non_rep_percent]
+            non_repeat_len += len(elem)
+    
+    non_rep_percent = round((non_repeat_len / seq_len) * 100, 2) if seq_len > 0 else 0
+    
+    return final_merged, non_rep_percent

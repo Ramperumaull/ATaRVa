@@ -53,6 +53,20 @@ def inrepeat_ins(near_by_loci, ins_rpos, sorted_global_ins_rpos_set):
             return 1
     return 0
 
+def subset_hiQ_reads(global_read_variations, maxR, read_indices, read_tag):
+    # coverage of the locus is high
+    read_qual_dict = {} # dict to store read quality
+    for each_read_id in read_indices:
+        read_qual_dict[each_read_id] = global_read_variations[each_read_id]['q']
+    sorted_reads_by_qual = [read_id for read_id,_ in sorted(read_qual_dict.items(), key = lambda x: x[1], reverse = True)] # sorting reads, based on quality
+    tmp_read_indices = set(sorted_reads_by_qual[:maxR])
+    good_qual_read_idx = [idx for idx,i in enumerate(read_indices) if i in tmp_read_indices] # getting the index of the good_qual read-ids
+    read_tag = [read_tag[i] for i in good_qual_read_idx] # extracting hp-tags of good-qual reads
+    read_indices = sorted(tmp_read_indices)
+    del tmp_read_indices, good_qual_read_idx
+
+    return read_indices, read_tag
+
 
 def process_locus(locus_key, global_loci_variations, global_read_variations, global_snp_positions, prev_reads, sorted_global_snp_list, maxR, minR, global_loci_info, near_by_loci, sorted_global_ins_rpos_set, Chrom, locus_start, locus_end, ref, log_bool, logger, snp_dist, prev_locus_end, hp_code, amplicon):
 
@@ -77,12 +91,12 @@ def process_locus(locus_key, global_loci_variations, global_read_variations, glo
     if total_reads < minR:
         # coverage of the locus is low
         prev_reads = set(read_indices)
-        return [prev_reads, category, homozygous_allele, reads_of_homozygous, {}, 0, max_limit, haplotypes, []]
+        return [prev_reads, category, homozygous_allele, reads_of_homozygous, {}, 0, haplotypes, []]
     elif total_reads > maxR:
-        # coverage of the locus is high
-        read_indices = read_indices[:maxR]
-        read_tag = read_tag[:maxR]
-        max_limit=1
+        if amplicon:
+           read_indices, read_tag = subset_hiQ_reads(global_read_variations, maxR, read_indices, read_tag)
+        else:
+            max_limit=1
     
     current_reads = set(read_indices)
     old_reads = prev_reads - current_reads
@@ -202,6 +216,10 @@ def process_locus(locus_key, global_loci_variations, global_read_variations, glo
     count_alleles(locus_key, read_indices, global_loci_variations, allele_counter, hallele_counter, alen_list)
 
     if not amplicon:
+        record_snps(read_indices, old_reads, new_reads, global_read_variations, global_snp_positions, sorted_global_snp_list, locus_start, locus_end, snp_dist, prev_locus_end)
+        if max_limit==1:
+            read_indices, read_tag = subset_hiQ_reads(global_read_variations, maxR, read_indices, read_tag)
+
         hap_status = False
         if hp_code:
             haplotypes = ([read_indices[i] for i in [idx for idx,i in enumerate(read_tag) if i == 1]], [read_indices[i] for i in [idx for idx,i in enumerate(read_tag) if i == 2]])
@@ -223,10 +241,10 @@ def process_locus(locus_key, global_loci_variations, global_read_variations, glo
             else:
                 category = 2 # ambiguous
 
-        record_snps(read_indices, old_reads, new_reads, global_read_variations, global_snp_positions, sorted_global_snp_list, locus_start, locus_end, snp_dist, prev_locus_end)
+        # record_snps(read_indices, old_reads, new_reads, global_read_variations, global_snp_positions, sorted_global_snp_list, locus_start, locus_end, snp_dist, prev_locus_end)
 
     else:
         category = 2 # ambiguous
     
     prev_reads = current_reads.copy()
-    return [prev_reads, category, homozygous_allele, read_indices, hallele_counter, 10, max_limit, haplotypes, alen_list]
+    return [prev_reads, category, homozygous_allele, read_indices, hallele_counter, 10, haplotypes, alen_list]

@@ -7,7 +7,7 @@ from ATARVA.decomp_utils import motif_decomposition
 
 def dbscan(data, hap_reads):
     data = np.array(data).reshape(-1, 1)
-    min_samples = round(0.2*len(data)) # min 20% of the data
+    min_samples = max(10, round(0.2*len(data))) # min 20% of the data or 10 reads
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=FutureWarning)
         clusterer = hdbscan.HDBSCAN(min_cluster_size=min_samples)
@@ -38,10 +38,13 @@ def dbscan(data, hap_reads):
         new_haplotypes = [[hap_reads[idx] for idx in top2_clus_idx[0][0]], [hap_reads[idx] for idx in top2_clus_idx[1][0]]] # getting respective read ids
 
         new_alen = [top2_clus_idx[0][1], top2_clus_idx[1][1]]
+
+        if set(new_alen[0])==set(new_alen[1]):
+            return [False,None,None]
         
         return [True, new_haplotypes, new_alen]
     
-def mm_tag_extract(pos_qual, meth_start, meth_end, read_sequence, meth_cutoff):
+def mm_tag_extract(pos_qual, meth_start, meth_end, read_sequence, meth_cutoff, frwd_strand):
     read_meth_range = []
     last_index = len(read_sequence)-1
     if (meth_start!=None) and (meth_end!=None):
@@ -49,8 +52,10 @@ def mm_tag_extract(pos_qual, meth_start, meth_end, read_sequence, meth_cutoff):
             if (each_pos[1]/255) < meth_cutoff:
                 continue
             meth_pos = each_pos[0]
+            meth_chunk_start = meth_pos if frwd_strand else meth_pos-1 # to check the meth context, start index
+            meth_chunk_end = meth_pos+2 if frwd_strand else meth_pos+1 # to check the meth context, end index
             if meth_start <= meth_pos <= meth_end:
-                if (meth_pos+1 <= last_index) and (read_sequence[meth_pos : meth_pos+2]=='CG'):
+                if (meth_pos+1 <= last_index) and (read_sequence[meth_chunk_start : meth_chunk_end]=='CG'):
                     read_meth_range.append(each_pos)
     return read_meth_range
             
@@ -63,9 +68,9 @@ def methylation_calc(hap_reads, global_loci_variations, locus_key):
             meth_reads += 1
             hap_meth += locus_read_meth[read_id]
     if meth_reads > 0:
-        return round(hap_meth/meth_reads, 2)
+        return [round(hap_meth/meth_reads, 2), meth_reads]
     else:
-        return None
+        return [None, None]
     
 def confidence_interval(data):
     data = np.array(data)

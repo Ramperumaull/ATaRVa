@@ -1,5 +1,5 @@
 # ATaRVa - a tandem repeat genotyper
-![Badge-PyPI](https://img.shields.io/badge/PyPI-v0.4.0-brightgreen)
+![Badge-PyPI](https://img.shields.io/badge/PyPI-v0.4.1-brightgreen)
 ![Badge-License](https://img.shields.io/badge/License-MIT-blue)
 
 <p align=center>
@@ -68,7 +68,7 @@ usage: atarva [-h] -f <FILE> -b <FILE> [<FILE> ...] -r <FILE> [--format <STR>] [
               [--snp-dist <INT>] [--snp-count <INT>] [--snp-qual <INT>] [--flank <INT>]
               [--snp-read <FLOAT>] [--meth-prob <FLOAT>] [--phasing-read <FLOAT>] [-o <FILE>]
               [--karyotype KARYOTYPE [KARYOTYPE ...]] [-t <INT>] [--haplotag <STR>]
-              [--decompose] [--amplicon] [-log] [-v]
+              [--decompose] [--amplicon] [--read-wise] [--loci-wise] [-log] [-v]
 
 Required arguments:
   -f <FILE>, --fasta <FILE>
@@ -114,6 +114,8 @@ Optional arguments:
   --decompose           write the motif-decomposed sequence to the vcf. [default: False]
   --amplicon            genotype mode for targeted-sequenced samples.
                         In this mode, the default values for `max-reads` and `flank` values are 1000 and 20 respectively [default: False]
+  --read-wise           Read-wise genotyping mode for BED file with dense regions. [default: False]
+  --loci-wise           Loci-wise genotyping mode instead of Read-wise for BED file with sparse regions. [default: False]
   -log, --debug_mode    write the debug messages to log file. [default: False]
   -v, --version         show program's version number and exit
 ```
@@ -292,6 +294,7 @@ The `INFO` field describes the general structure of the repeat region and includ
 | AC | Total number of respective ALT alleles in called genotypes |
 | AN | Total number of alleles in called genotypes |
 | MOTIF | Motif of the repeat region |
+| START | Start position of the repeat region |
 | END | End position of the repeat region |
 | ID  | Tag fetched form the extra column in BED file |
 
@@ -309,6 +312,7 @@ The `FORMAT` fields and their values are provided in the last two columns of the
 | SN | Number of SNPs used for phasing |
 | SQ | Phred-scale qualities of the SNPs used for phasing |  
 | MM | Mean methylation level for each allele | 
+| MR | Number of reads supporting methylation info for each allele | 
 | DS | Motif decomposed sequence of the alternate alleles |
 
 **NOTE: Loci missing in the VCF either have no reads mapped to them, contain reads that do not fully enclose the repeat region, or have reads with low mapping quality (mapQ).**
@@ -333,7 +337,13 @@ Performs motif-decomposition on ALT sequences.<br>
 **NOTE: Only applicable for motif length <= 10**
 
 ### `--amplicon`
-genotyping mode for targeted sequencing data. In this mode, the default values for `max-reads` and `flank` values are 1000 and 20 respectively.
+Genotyping mode for targeted sequencing data. In this mode, the default values for `max-reads` and `flank` values are 1000 and 20 respectively.
+
+### `--read-wise`
+Classical ATaRVa genotyping mode, where loci are genotyped read-wise, utilizing the length advantage of the long reads to genotype multiple loci simultaneously (default : True)
+
+### `--loci-wise`
+Genotyping mode for BED files with sparse regions across chromosomes or for BED files containing a small number of loci(<500). In this mode, loci are genotyped independently rather than using a read-wise approach.
 
 ### `-v or --version`
 Prints the version info of ATaRVa.
@@ -393,6 +403,14 @@ $ docker run -i -t --rm -v /path_of_necessary_files/:/folder_name atarva:latest 
 In all the above examples, the output of ATaRVa is saved to input.vcf unless -o is specified.
 
 ## Changelog
+### v0.4.1
+* Changed the VCF-START column into 1-based coordinate system
+* Included `START` tag in VCF-INFO column with 0-based coordinate system
+* Added `MR` tags in the VCF_SAMPLE column to report the supporting read count for mean methylation level
+* Added a confirmation step to check `MM` extraction from the reverse strand
+* Added a `loci-wise` flag to perform region-wise genotyping (instead of the default read-wise mode) for BED files with sparse regions
+* Improved Motif-decomposition script to maintain consistent representation of a motif (cyclic variation check)
+
 ### v0.4.0
 * Added `MM` tag in VCF_SAMPLE column for mean methylation level
 * Modified `AR` tag in VCF-SAMPLE column with central 95% allele range
