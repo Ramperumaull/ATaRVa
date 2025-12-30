@@ -93,10 +93,8 @@ def process_locus(locus_key, global_loci_variations, global_read_variations, glo
         prev_reads = set(read_indices)
         return [prev_reads, category, homozygous_allele, reads_of_homozygous, {}, 0, haplotypes, []]
     elif total_reads > maxR:
-        if amplicon:
-           read_indices, read_tag = subset_hiQ_reads(global_read_variations, maxR, read_indices, read_tag)
-        else:
-            max_limit=1
+        read_indices, read_tag = subset_hiQ_reads(global_read_variations, maxR, read_indices, read_tag)
+
     
     current_reads = set(read_indices)
     old_reads = prev_reads - current_reads
@@ -217,8 +215,6 @@ def process_locus(locus_key, global_loci_variations, global_read_variations, glo
 
     if not amplicon:
         record_snps(read_indices, old_reads, new_reads, global_read_variations, global_snp_positions, sorted_global_snp_list, locus_start, locus_end, snp_dist, prev_locus_end)
-        if max_limit==1:
-            read_indices, read_tag = subset_hiQ_reads(global_read_variations, maxR, read_indices, read_tag)
 
         hap_status = False
         if hp_code:
