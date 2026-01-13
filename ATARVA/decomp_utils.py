@@ -635,6 +635,6 @@ def refine_decomposition(fseq, motif_size, seq_len):
         else:
             non_repeat_len += len(elem)
     
-    non_rep_percent = round((non_repeat_len / seq_len) * 100, 2) if seq_len > 0 else 0
+    non_rep_percent = round((non_repeat_len / seq_len), 2) if seq_len > 0 else 0
     
     return final_merged, non_rep_percent

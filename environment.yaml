@@ -13,3 +13,4 @@ dependencies:
   - bitarray>=3.0.0
   - regex>=2025.9.1
   - hdbscan>=0.8.40
+  - polars>=1.31.0
