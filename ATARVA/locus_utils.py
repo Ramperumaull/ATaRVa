@@ -25,7 +25,7 @@ def record_snps(read_indices, old_reads, new_reads, global_read_variations, glob
     prev_locus_end += snp_dist
 
     for rindex in read_indices:
-        # if rindex not in new_reads: continue
+        if rindex not in new_reads: continue 
 
         read_variation = global_read_variations[rindex]
         rstart = read_variation['s']
@@ -33,9 +33,8 @@ def record_snps(read_indices, old_reads, new_reads, global_read_variations, glob
         snps   = read_variation['snps']
         dels   = read_variation['dels']
 
-            
         for pos in sorted_global_snp_list:
-            if pos < prev_locus_end: continue
+            # if pos < prev_locus_end: continue
             if not (snp_start <= pos <= snp_end): continue
             if pos < rstart: continue
             if pos > rend: break
@@ -68,7 +67,7 @@ def subset_hiQ_reads(global_read_variations, maxR, read_indices, read_tag):
     return read_indices, read_tag
 
 
-def process_locus(locus_key, global_loci_variations, global_read_variations, global_snp_positions, prev_reads, sorted_global_snp_list, maxR, minR, global_loci_info, near_by_loci, sorted_global_ins_rpos_set, Chrom, locus_start, locus_end, ref, log_bool, logger, snp_dist, prev_locus_end, hp_code, amplicon):
+def process_locus(locus_key, global_loci_variations, global_read_variations, global_snp_positions, prev_reads, sorted_global_snp_list, maxR, minR, global_loci_info, near_by_loci, sorted_global_ins_rpos_set, Chrom, locus_start, locus_end, ref, log_bool, logger, snp_dist, prev_locus_end, hp_code, amplicon, meth_cutoff):
 
 
     ref_seq = ref.fetch(Chrom, locus_start, locus_end)
@@ -148,7 +147,6 @@ def process_locus(locus_key, global_loci_variations, global_read_variations, glo
                 elif (align.count('|') >= round(0.75*align_len)) and (pos[1]>=round(0.7*que_len)) and (align_len>=round(0.45*que_len)):
                     if align_len<=0.5*que_len: PI+=1
                     else: CI+=1
-                    # print('either CI or PI')
                     new_start = each_tuple[0] + pos[0]
                     for ins in sorted_left_rpos[lid:]:
                         new_ins_rpos_current_loci.add(ins)
@@ -190,8 +188,9 @@ def process_locus(locus_key, global_loci_variations, global_read_variations, glo
 
 
         # Extracting the methylation probability for each read at the locus
-        adj_start = read_repeat_start + ( new_start - rep_range[0] ) # adjusting the start position with respect to original read coordinates by adding the diff(after local-alignment)
-        adj_end = read_repeat_end + ( new_end - rep_range[1] ) # adjusting the start position with respect to original read coordinates by adding the diff(after local-alignment)
+        subseq_len = read_repeat_end - read_repeat_start
+        adj_start = read_repeat_start + new_start #( new_start - rep_range[0] ) # adjusting the start position with respect to original read coordinates by adding the diff(after local-alignment)
+        adj_end = read_repeat_end - (subseq_len - new_end) # adjusting the start position with respect to original read coordinates by adding the diff(after local-alignment)
 
         read_mod_bases = global_read_variations[each_read]['meth'] # modified_bases data
         locus_read_meth = global_loci_variations[locus_key]['read_meth'] # read_wise methylation data at the locus
@@ -199,13 +198,25 @@ def process_locus(locus_key, global_loci_variations, global_read_variations, glo
         # calculating average methylation probability at the locus for each read
         meth_count = 0
         meth_qual = 0
+        meth_encode = []
+        upper_bound = meth_cutoff
+        lower_bound = 1 - meth_cutoff
         for each_pos in read_mod_bases:
             if adj_start <= each_pos[0] <= adj_end:
+
+                current_prob = each_pos[1]/255
+                if lower_bound < current_prob < upper_bound: # skip the MM if it is within the lower and upper bound; only store the extremies
+                    meth_encode.append(-1) # to indicate skipped positions
+                    continue
+
                 meth_count += 1
-                meth_qual += each_pos[1]/255
+                meth_encode.append(each_pos[1]//4) # encoding the probability in base64
+                if current_prob >= meth_cutoff:
+                    meth_qual += 1 #each_pos[1]/255
+            
         if meth_count > 0:
             avg_qual = meth_qual/meth_count
-            locus_read_meth[each_read] = round(avg_qual, 2)
+            locus_read_meth[each_read] = (round(avg_qual, 2), meth_encode) # storing meth level and position meth prob encoding
         else:
             locus_read_meth[each_read] = None
                 

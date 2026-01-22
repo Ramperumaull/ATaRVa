@@ -7,7 +7,8 @@ from tqdm import tqdm
 
 from ATARVA.version import __version__
 from ATARVA.baseline import *
-from ATARVA.vcf_writer import set_info_opt_tag
+# from ATARVA.vcf_writer import set_info_opt_tag
+from ATARVA.sub_operation_utils import set_methviz_tag
 
 def genotype_parser(subparsers):
     parser = subparsers.add_parser("genotype", help="tandem repeat genotyper specially designed for long read data", description="Tandem Repeat Genotyper")
@@ -38,6 +39,7 @@ def genotype_parser(subparsers):
     optional.add_argument('-t',  '--threads', type=int, metavar='<INT>', default=1, help='number of threads. [default: 1]')
     optional.add_argument('--haplotag', type=str, metavar='<STR>', default=None, help='use haplotagged information for phasing. eg: [HP]. [default: None]')
     optional.add_argument('--decompose', action='store_true', help="write the motif-decomposed sequence to the vcf. [default: False]")
+    optional.add_argument('--methviz', action='store_true', help="write the methylation encoded sequence to the vcf for visualization purpose. [default: False]")
     optional.add_argument('--amplicon', action='store_true', help="genotype mode for targeted-sequenced samples. In this mode, the default values for `max-reads` and `flank` values are 1000 and 20 respectively. [default: False]")
     optional.add_argument('--read-wise', action='store_true', help="Read-wise genotyping mode for BED file with dense regions. [default: False]")
     optional.add_argument('--loci-wise', action='store_true', help="Loci-wise genotyping mode instead of Read-wise for BED file with sparse regions. [default: False]")
@@ -134,13 +136,14 @@ def genotype_run(args):
     # else: out_file = f'{".".join(args.bams.split(".")[:-1])}'
     external_name = out_file
 
-    with gzip.open(args.regions, 'rt') as f:
-        first_row = f.readline().strip().split('\t')
-        if (first_row[0][0]=='#') & (len(first_row)>5):
-            info_opt_tag = first_row[5]
-        else:
-            info_opt_tag = 'ID'
-    set_info_opt_tag(info_opt_tag)
+    # with gzip.open(args.regions, 'rt') as f:
+    #     first_row = f.readline().strip().split('\t')
+    #     if (first_row[0][0]=='#') & (len(first_row)>5):
+    #         info_opt_tag = first_row[5]
+    #     else:
+    #         info_opt_tag = 'ID'
+    # set_info_opt_tag(info_opt_tag)
+    set_methviz_tag(args.methviz)
 
     tbx  = pysam.Tabixfile(args.regions)
     total_loci = 0
@@ -254,30 +257,6 @@ def genotype_run(args):
         elif mbso or (out_file[-1]=='/'):
             out_file = out_file + '_' + ".".join(each_bam.split("/")[-1].split('.')[:-1])
 
-        # if threads > 1:
-        #     thread_pool = list()
-        #     # initializing threads
-        #     for tidx in range(threads):
-        #         contig = fetcher[tidx]
-        #         if srs:
-        #             thread_x = Process(
-        #                 target = mini_cooper,
-        #                 args = (each_bam, args.regions, args.fasta, aln_format, contig, args.map_qual, out_file, args.snp_qual, args.snp_count, args.snp_dist, maxR, args.min_reads, args.snp_read, args.phasing_read, tidx, flank_length, args.debug_mode, karyotype_list[kidx], args.decompose, args.haplotag, amplicon, args.meth_prob, somatic))
-        #         else:
-        #             thread_x = Process(
-        #                 target = cooper,
-        #                 args = (each_bam, args.regions, args.fasta, aln_format, contig, args.map_qual, out_file, args.snp_qual, args.snp_count, args.snp_dist, maxR, args.min_reads, args.snp_read, args.phasing_read, tidx, flank_length, args.debug_mode, karyotype_list[kidx], args.decompose, args.haplotag, amplicon, args.meth_prob, somatic))
-        #         thread_x.start()
-        #         thread_pool.append(thread_x)
-
-
-        #     # joining Threads 
-        #     for thread_x in tqdm(thread_pool, desc="Processing ", ascii="_>", ncols=75, bar_format="{l_bar}{bar}{n_fmt}/{total_fmt}"):
-        #         thread_x.join()
-        #         # progress_bar.update(1)
-
-        #     # emptying thread_pool
-        #     thread_pool.clear()
         if threads > 1:
             def update(_):
                 pbar.update()

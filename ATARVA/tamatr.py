@@ -408,6 +408,7 @@ def vcf_writer(out, bam_name, source_vcf_path):
     vcf_header.info.add("MOTIF", number=1, type="String", description="Repeat motif")
     vcf_header.info.add("START", number=1, type="Integer", description="Start position of the repeat region in 0-based coordinate system")
     vcf_header.info.add("END", number=1, type="Integer", description="End position of the repeat region")
+    vcf_header.info.add("ID", number=1, type="String", description="Locus identifier tag")
     vcf_header.info.add("CT", number=1, type="String", description="Cluster type")
     vcf_header.info.add("EAC", number=1, type="String", description="Each Allele Count")
     # FORMAT
@@ -422,5 +423,6 @@ def vcf_writer(out, bam_name, source_vcf_path):
     vcf_header.formats.add("MM", number='.', type="Float", description="Mean methylation level for each allele")
     vcf_header.formats.add("MR", number='.', type="Integer", description="Number of reads providing methylation info for each allele")
     vcf_header.formats.add("DS", number='A', type="String", description="Motif decomposed sequence")
+    vcf_header.formats.add("MV", number='.', type="String", description="Visual methylation encodings for the alleles")
 
     out.write(str(vcf_header))

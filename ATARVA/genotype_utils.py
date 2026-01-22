@@ -108,12 +108,10 @@ def length_genotyper(hallele_counter, global_loci_info, global_loci_variations, 
 
     alen_c1 = [alen_data[i] for i in c1]
     alen_c2 = [alen_data[i] for i in c2]
-    # print('clust1 = ', set(alen_c1), len(alen_c1))
-    # print('clust2 = ', set(alen_c2), len(alen_c2))
+
 
     haplotypes = ([main_read_id[idx] for idx in c1], [main_read_id[idx] for idx in c2])
     cutoff = 0.15*len(alen_data) # 15%
-    # print('Initial cutoff = ', cutoff)
 
     br = False
     if c1 and c2:
@@ -123,9 +121,7 @@ def length_genotyper(hallele_counter, global_loci_info, global_loci_variations, 
             slide = max(max_val*0.1, 10)
             min_bound = min(alen_y)-slide
             max_bound = max_val+slide
-            # avg = sum(alen_x)/len(alen_x)
-            # if min_bound <= avg <= max_bound:
-            #     br = True
+
             for min_al in alen_x:
                 if min_bound <= min_al <= max_bound:
                     br = True
@@ -143,7 +139,6 @@ def length_genotyper(hallele_counter, global_loci_info, global_loci_variations, 
         elif len(c2) < cutoff and len(c1) >= cutoff:
             process_conditions(alen_c2, alen_c1)
 
-    # print('Final cutoff = ', cutoff)
     if male:
         cluster_len = [len(c1), len(c2)]
         cidx = cluster_len.index(max( cluster_len ))
@@ -233,7 +228,6 @@ def analyse_genotype(contig, locus_key, global_loci_info,
                                                     (locus_start - snpD < x < locus_end + snpD),
                             snp_positions)))
 
-
     snp_allelereads = {}
     read_indices = set(read_indices)
     non_ref_snp_cov = {}
@@ -268,8 +262,7 @@ def analyse_genotype(contig, locus_key, global_loci_info,
 
     ordered_snp_on_cov = sorted(snp_allelereads.keys(), key = lambda item : non_ref_snp_cov[item], reverse = True)
 
-
-    haplotypes, min_snp, skip_point, chosen_snpQ, phased_read, snp_num = haplocluster_reads(snp_allelereads, ordered_snp_on_cov, read_indices, snpQ, snpC, snpR, phasingR) # SNP ifo and supporting reads for specific locus are given to the phasing function
+    haplotypes, min_snp, skip_point, chosen_snpQ, phased_read, snp_num = haplocluster_reads(snp_allelereads, ordered_snp_on_cov, read_indices, snpC, snpR, phasingR) # SNP ifo and supporting reads for specific locus are given to the phasing function
 
     if haplotypes == (): # if the loci has no significant snps
         state, skip_point = length_genotyper(hallele_counter, global_loci_info, global_loci_variations, locus_key, read_indices, contig, locus_start, locus_end, ref, out, male, log_bool, decomp, read_seqs, False)
@@ -277,13 +270,14 @@ def analyse_genotype(contig, locus_key, global_loci_info,
         return [state, skip_point]
     
     if min_snp != -1:
-        min_idx = sorted_global_snp_list.index(min_snp)
+        snp_left_boundary = locus_start - snpD
+        min_idx = 0
+        for each_spos in sorted_global_snp_list:
+            if each_spos >= snp_left_boundary:
+                break
+            del global_snp_positions[each_spos]
+            min_idx += 1
         del sorted_global_snp_list[:min_idx]
-        del_snps = set()
-        for pos in global_snp_positions:
-            if pos < min_snp: del_snps.add(pos)
-        for pos in del_snps:
-            del global_snp_positions[pos]
 
 
     genotypes = []

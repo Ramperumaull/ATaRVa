@@ -1,6 +1,6 @@
 # import sys
 
-def haplocluster_reads(snp_allelereads, ordered_snp_on_cov, read_indices, snpQ, snpC, snpR, phasingR):
+def haplocluster_reads(snp_allelereads, ordered_snp_on_cov, read_indices, snpC, snpR, phasingR):
 
     threshold_range = [(0.3, 0.7),(0.25, 0.75),(0.2, 0.8)] # threshold values to get Significant_snps
     for idx,range in enumerate(threshold_range):
@@ -28,7 +28,7 @@ def haplocluster_reads(snp_allelereads, ordered_snp_on_cov, read_indices, snpQ, 
                 skip_point = 0
                 return [final_haplos, min_snp, skip_point, '', '', 0]
 
-        final_haplos, status, min_snp, skip_point, chosen_snpQ, phased_read, snp_num = merge_snpreadsets(filtered_significant_poses, ordered_split_pos, read_indices, snpQ, snpC, snpR, phasingR) # calling the phasing function
+        final_haplos, status, min_snp, skip_point, chosen_snpQ, phased_read, snp_num = merge_snpreadsets(filtered_significant_poses, ordered_split_pos, read_indices, snpC, snpR, phasingR) # calling the phasing function
         if status: break
         if idx == 2: #level_split:
             break
@@ -36,7 +36,7 @@ def haplocluster_reads(snp_allelereads, ordered_snp_on_cov, read_indices, snpQ, 
     return [final_haplos, min_snp, skip_point, chosen_snpQ, phased_read, snp_num]
 
 
-def merge_snpreadsets(Significant_poses, ordered_split_pos, read_indices, snpQ, snpC, snpR, phasingR):
+def merge_snpreadsets(Significant_poses, ordered_split_pos, read_indices, snpC, snpR, phasingR):
 
 
     skip_point = 10
@@ -124,8 +124,6 @@ def merge_snpreadsets(Significant_poses, ordered_split_pos, read_indices, snpQ, 
         current_pos = sorted(least_mismatches.keys(), key=lambda item: least_mismatches[item])[0] # now take the snp position with least score and proceed for clustering
         significant_snps.append(current_pos)
         significant_snps.extend(sorted(pos_cluster[current_pos].keys(), key=lambda item: pos_cluster[current_pos][item])) # [1023, 1036, 1045, 1123]
-
-
 
     final_ordered_dict = {k: sorted_filtered_dict[k] for k in significant_snps if k in sorted_filtered_dict} # dict of 'final snp & its nucs : reads' for haplotyping, generated from 'significant_snps' list above
     

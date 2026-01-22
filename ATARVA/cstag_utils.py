@@ -12,7 +12,7 @@ def match_parse(sub_base, int_base, rpos, repeat_index, loci_keys, loci_coords, 
     int_base = 0
     return [rpos, qpos, sub_base, int_base, repeat_index]
 
-def sub_parse(base, sub_char, male, sorted_global_snp_list, global_snp_positions, read_index, global_read_variations, read_quality, rpos, repeat_index, loci_keys, loci_coords, tracked, locus_qpos_range, qpos, loci_flank_qpos_range, flank_track, left_flank_list, right_flank_list, hp, amp_right_flank_list, amp_left_flank_list, out_insertion_qpos_ranges_right, out_insertion_qpos_ranges_left, right_ins_rpos, left_ins_rpos, amplicon_variables, same_read_loci):
+def sub_parse(base, sub_char, male, sorted_global_snp_list, global_snp_positions, read_index, global_read_variations, read_quality, rpos, repeat_index, loci_keys, loci_coords, tracked, locus_qpos_range, qpos, loci_flank_qpos_range, flank_track, left_flank_list, right_flank_list, hp, amp_right_flank_list, amp_left_flank_list, out_insertion_qpos_ranges_right, out_insertion_qpos_ranges_left, right_ins_rpos, left_ins_rpos, amplicon_variables, same_read_loci, snpQ):
     #ref_nuc = sub_char[0]
     sub_nuc = sub_char[1]
 
@@ -22,8 +22,9 @@ def sub_parse(base, sub_char, male, sorted_global_snp_list, global_snp_positions
             outside_loci = False
             break
 
-    if (not male) and outside_loci and (not hp) and (amplicon_variables==[]):
-        Q_value = read_quality[qpos]
+    Q_value = read_quality[qpos]
+    if (Q_value >= snpQ) and (not male) and outside_loci and (not hp) and (amplicon_variables==[]):
+        
         global_read_variations[read_index]['snps'].add(rpos)
         
         if rpos not in global_snp_positions:
@@ -63,7 +64,7 @@ def del_parse(base, male, global_read_variations, read_index, rpos, repeat_index
 
 
 def parse_cstag(read_index, cs_tag, read_start, loci_keys, loci_coords, read_loci_variations,
-                homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read_quality, cigar_one, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, init_amp_var, same_read_loci):
+                homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read_quality, cigar_one, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, init_amp_var, same_read_loci, snpQ):
     """
     Parse the CS tag for a read and record the variations observed for the read also for the loci
     """
@@ -124,7 +125,7 @@ def parse_cstag(read_index, cs_tag, read_start, loci_keys, loci_coords, read_loc
                           homopoly_positions, read_loci_variations, locus_qpos_range, qpos, loci_flank_qpos_range, flank_track, left_flank_list, right_flank_list, amp_right_flank_list, amp_left_flank_list, out_insertion_qpos_ranges_right, out_insertion_qpos_ranges_left, right_ins_rpos, left_ins_rpos, amplicon_variables)
                     
                 elif subs & (sub_char != ''):
-                    rpos, qpos, base, sub_char, repeat_index = sub_parse(base, sub_char, male, sorted_global_snp_list, global_snp_positions, read_index, global_read_variations, read_quality, rpos, repeat_index, loci_keys, loci_coords, tracked, locus_qpos_range, qpos, loci_flank_qpos_range, flank_track, left_flank_list, right_flank_list, hp, amp_right_flank_list, amp_left_flank_list, out_insertion_qpos_ranges_right, out_insertion_qpos_ranges_left, right_ins_rpos, left_ins_rpos, amplicon_variables, same_read_loci)
+                    rpos, qpos, base, sub_char, repeat_index = sub_parse(base, sub_char, male, sorted_global_snp_list, global_snp_positions, read_index, global_read_variations, read_quality, rpos, repeat_index, loci_keys, loci_coords, tracked, locus_qpos_range, qpos, loci_flank_qpos_range, flank_track, left_flank_list, right_flank_list, hp, amp_right_flank_list, amp_left_flank_list, out_insertion_qpos_ranges_right, out_insertion_qpos_ranges_left, right_ins_rpos, left_ins_rpos, amplicon_variables, same_read_loci, snpQ)
                     
                 ins, dels, iden = [False]*3
                 
@@ -134,7 +135,7 @@ def parse_cstag(read_index, cs_tag, read_start, loci_keys, loci_coords, read_loc
                     rpos, qpos, sub_base, int_base, repeat_index = match_parse(sub_base, int_base, rpos, repeat_index, loci_keys, loci_coords, tracked, locus_qpos_range, qpos, loci_flank_qpos_range, flank_track, left_flank_list, right_flank_list, amp_right_flank_list, amp_left_flank_list, out_insertion_qpos_ranges_right, out_insertion_qpos_ranges_left, right_ins_rpos, left_ins_rpos, amplicon_variables)
                     
                 elif subs & (sub_char != ''):
-                    rpos, qpos, base, sub_char, repeat_index = sub_parse(base, sub_char, male, sorted_global_snp_list, global_snp_positions, read_index, global_read_variations, read_quality, rpos, repeat_index, loci_keys, loci_coords, tracked, locus_qpos_range, qpos, loci_flank_qpos_range, flank_track, left_flank_list, right_flank_list, hp, amp_right_flank_list, amp_left_flank_list, out_insertion_qpos_ranges_right, out_insertion_qpos_ranges_left, right_ins_rpos, left_ins_rpos, amplicon_variables, same_read_loci)
+                    rpos, qpos, base, sub_char, repeat_index = sub_parse(base, sub_char, male, sorted_global_snp_list, global_snp_positions, read_index, global_read_variations, read_quality, rpos, repeat_index, loci_keys, loci_coords, tracked, locus_qpos_range, qpos, loci_flank_qpos_range, flank_track, left_flank_list, right_flank_list, hp, amp_right_flank_list, amp_left_flank_list, out_insertion_qpos_ranges_right, out_insertion_qpos_ranges_left, right_ins_rpos, left_ins_rpos, amplicon_variables, same_read_loci, snpQ)
                     
                 elif ins: # & (base != 0):
                     qpos, base, repeat_index = ins_parse(base, '', rpos, repeat_index, loci_keys,
@@ -148,7 +149,7 @@ def parse_cstag(read_index, cs_tag, read_start, loci_keys, loci_coords, read_loc
                     rpos, qpos, sub_base, int_base, repeat_index = match_parse(sub_base, int_base, rpos, repeat_index, loci_keys, loci_coords, tracked, locus_qpos_range, qpos, loci_flank_qpos_range, flank_track, left_flank_list, right_flank_list, amp_right_flank_list, amp_left_flank_list, out_insertion_qpos_ranges_right, out_insertion_qpos_ranges_left, right_ins_rpos, left_ins_rpos, amplicon_variables)
                     
                 elif subs & (sub_char != ''):
-                    rpos, qpos, base, sub_char, repeat_index = sub_parse(base, sub_char, male, sorted_global_snp_list, global_snp_positions, read_index, global_read_variations, read_quality, rpos, repeat_index, loci_keys, loci_coords, tracked, locus_qpos_range, qpos, loci_flank_qpos_range, flank_track, left_flank_list, right_flank_list, hp, amp_right_flank_list, amp_left_flank_list, out_insertion_qpos_ranges_right, out_insertion_qpos_ranges_left, right_ins_rpos, left_ins_rpos, amplicon_variables, same_read_loci)
+                    rpos, qpos, base, sub_char, repeat_index = sub_parse(base, sub_char, male, sorted_global_snp_list, global_snp_positions, read_index, global_read_variations, read_quality, rpos, repeat_index, loci_keys, loci_coords, tracked, locus_qpos_range, qpos, loci_flank_qpos_range, flank_track, left_flank_list, right_flank_list, hp, amp_right_flank_list, amp_left_flank_list, out_insertion_qpos_ranges_right, out_insertion_qpos_ranges_left, right_ins_rpos, left_ins_rpos, amplicon_variables, same_read_loci, snpQ)
                     
                 elif dels: # & (base != 0):
                     rpos, base, repeat_index = del_parse(base, male, global_read_variations, read_index, rpos, repeat_index, loci_keys, tracked, loci_coords,
@@ -160,7 +161,7 @@ def parse_cstag(read_index, cs_tag, read_start, loci_keys, loci_coords, read_loc
                 if i == '=':
                     iden = True
                 if subs & (sub_char != ''):
-                    rpos, qpos, base, sub_char, repeat_index = sub_parse(base, sub_char, male, sorted_global_snp_list, global_snp_positions, read_index, global_read_variations, read_quality, rpos, repeat_index, loci_keys, loci_coords, tracked, locus_qpos_range, qpos, loci_flank_qpos_range, flank_track, left_flank_list, right_flank_list, hp, amp_right_flank_list, amp_left_flank_list, out_insertion_qpos_ranges_right, out_insertion_qpos_ranges_left, right_ins_rpos, left_ins_rpos, amplicon_variables, same_read_loci)
+                    rpos, qpos, base, sub_char, repeat_index = sub_parse(base, sub_char, male, sorted_global_snp_list, global_snp_positions, read_index, global_read_variations, read_quality, rpos, repeat_index, loci_keys, loci_coords, tracked, locus_qpos_range, qpos, loci_flank_qpos_range, flank_track, left_flank_list, right_flank_list, hp, amp_right_flank_list, amp_left_flank_list, out_insertion_qpos_ranges_right, out_insertion_qpos_ranges_left, right_ins_rpos, left_ins_rpos, amplicon_variables, same_read_loci, snpQ)
                     
                 elif dels: # & (base != 0):
                     rpos, base, repeat_index = del_parse(base, male, global_read_variations, read_index, rpos, repeat_index, loci_keys, tracked, loci_coords,
@@ -197,7 +198,7 @@ def parse_cstag(read_index, cs_tag, read_start, loci_keys, loci_coords, read_loc
               homopoly_positions, read_loci_variations, locus_qpos_range, qpos, loci_flank_qpos_range, flank_track, left_flank_list, right_flank_list, amp_right_flank_list, amp_left_flank_list, out_insertion_qpos_ranges_right, out_insertion_qpos_ranges_left, right_ins_rpos, left_ins_rpos, amplicon_variables)
         
     elif subs & (sub_char != ''):
-        rpos, qpos, base, sub_char, repeat_index = sub_parse(base, sub_char, male, sorted_global_snp_list, global_snp_positions, read_index, global_read_variations, read_quality, rpos, repeat_index, loci_keys, loci_coords, tracked, locus_qpos_range, qpos, loci_flank_qpos_range, flank_track, left_flank_list, right_flank_list, hp, amp_right_flank_list, amp_left_flank_list, out_insertion_qpos_ranges_right, out_insertion_qpos_ranges_left, right_ins_rpos, left_ins_rpos, amplicon_variables, same_read_loci)
+        rpos, qpos, base, sub_char, repeat_index = sub_parse(base, sub_char, male, sorted_global_snp_list, global_snp_positions, read_index, global_read_variations, read_quality, rpos, repeat_index, loci_keys, loci_coords, tracked, locus_qpos_range, qpos, loci_flank_qpos_range, flank_track, left_flank_list, right_flank_list, hp, amp_right_flank_list, amp_left_flank_list, out_insertion_qpos_ranges_right, out_insertion_qpos_ranges_left, right_ins_rpos, left_ins_rpos, amplicon_variables, same_read_loci, snpQ)
             
     tot_loc = len(loci_keys) - 1 # 0-based counting
     meth_start = None; meth_end = None # repeat sequence coordinates in the read for meth-calc

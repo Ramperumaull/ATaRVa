@@ -1,5 +1,5 @@
 # ATaRVa - a tandem repeat genotyper
-![Badge-PyPI](https://img.shields.io/badge/PyPI-v0.4.1-brightgreen)
+![Badge-PyPI](https://img.shields.io/badge/PyPI-v0.5.0-brightgreen)
 ![Badge-License](https://img.shields.io/badge/License-MIT-blue)
 
 <p align=center>
@@ -10,9 +10,27 @@ ATaRVa (pronounced uh-thur-va, IPA: /əθərvə/, Sanskrit: अथर्व) is 
 
 
 ## Motivation
-Long-read sequencing propelled comprehensive analysis of tandem repeats (TRs) in genomes. Current long-read TR genotypers are either platform specific or computationally inefficient. ATaRva outperforms existing tools while running an order of magnitude faster. ATaRVa also supports short-read data, multi-threading, haplotyping, and motif decomposition, making it an invaluable tool for population scale TR analyses.   
+Long-read sequencing propelled comprehensive analysis of tandem repeats (TRs) in genomes. Current long-read TR genotypers are either platform specific or computationally inefficient. ATaRva outperforms existing tools while running an order of magnitude faster. ATaRVa also supports multi-threading, haplotyping, and motif decomposition, making it an invaluable tool for population scale TR analyses.
+
+## Table of contents:
+
+* [Installation](#installation)
+  * [PyPI installation](#pypi-installation)
+  * [Docker installation](#docker-installation)
+* [Usage](#usage)
+  * [`genotype` command](#genotype-command)
+    * [Reference genome](#reference-genome)
+    * [Alignment file](#alignment-file)
+    * [Region file](#region-file)
+  * [`merge` command](#merge-command)
+* [Changelog](#changelog)
+* [Analysis script](#analysis-script)
+* [Citation](#citation)
+* [Contact](#contact)
 
 ## Installation
+
+### PyPI installation
 
 ATaRVa can be directly installed using pip with the package name `ATaRVa`.
 
@@ -51,24 +69,56 @@ ATaRVa can also be installed using the provided **Docker** image with the follow
 $ cd ATaRVa
 $ docker build --network host -t atarva
 ```
-
 ## Usage
-The help message and available options can be accessed using
+The help message and available subcommands can be accessed using
 
 ```bash
-$ atarva -h
+$ atarva genotype -h
 #  or
-$ atarva --help
+$ atarva genotype --help
 ```
 which gives the following output
 
 ```
-usage: atarva [-h] -f <FILE> -b <FILE> [<FILE> ...] -r <FILE> [--format <STR>] [-q <INT>]
-              [--contigs CONTIGS [CONTIGS ...]] [--min-reads <INT>] [--max-reads <INT>]
-              [--snp-dist <INT>] [--snp-count <INT>] [--snp-qual <INT>] [--flank <INT>]
-              [--snp-read <FLOAT>] [--meth-prob <FLOAT>] [--phasing-read <FLOAT>] [-o <FILE>]
-              [--karyotype KARYOTYPE [KARYOTYPE ...]] [-t <INT>] [--haplotag <STR>]
-              [--decompose] [--amplicon] [--read-wise] [--loci-wise] [-log] [-v]
+ATaRVa - Analysis of Tandem Repeat Variants
+Sowpati Lab
+
+Usage:
+    atarva [OPTIONS] <COMMAND>
+
+Commands:
+  genotype  Tandem Repeat Genotyper
+  merge     Merge ATaRVa VCF files
+
+Options:
+  -h, --help     Print help
+  -v, --version  Print version
+```
+
+## `genotype` command
+`atarva genotype` accepts read alignments and a set of TR regions of interest and outputs TR genotypes, including the consensus sequence, allele length, and decomposed motifs.
+
+Overview of the ATaRVa worflow:
+1. ATaRVa processes the input BAM file read-wise, assuming that most long reads span multiple TR loci.
+2. After flank realignment and adjustment of read-wise allele lengths, ATaRVa clusters reads into haplotypes using nearby informative *SNV*s, or applies a *k-means* clustering approach when SNV information is unavailable.
+3. It derives consensus allele sequences using partial order alignment, decomposes each TR allele into motif-level representations, and outputs the results in VCF format.
+
+The help message and available options can be accessed using
+
+```bash
+$ atarva genotype -h
+#  or
+$ atarva genotype --help
+```
+which gives the following output
+
+```
+usage: atarva genotype  [-h] -f <FILE> -b <FILE> [<FILE> ...] -r <FILE> [--format <STR>] [-q <INT>]
+                        [--contigs CONTIGS [CONTIGS ...]] [--min-reads <INT>] [--max-reads <INT>]
+                        [--snp-dist <INT>] [--snp-count <INT>] [--snp-qual <INT>] [--flank <INT>]
+                        [--snp-read <FLOAT>] [--meth-prob <FLOAT>] [--phasing-read <FLOAT>] [-o <FILE>]
+                        [--karyotype KARYOTYPE [KARYOTYPE ...]] [-t <INT>] [--haplotag <STR>]
+                        [--decompose] [--amplicon] [--read-wise] [--loci-wise] [-log] [-v]
 
 Required arguments:
   -f <FILE>, --fasta <FILE>
@@ -120,16 +170,16 @@ Optional arguments:
   -v, --version         show program's version number and exit
 ```
 
-The details of each option are given below:
+The details of required input files are given below:
 
-## Reference genome
-### `-f or --fasta`
+### Reference genome
+#### `-f or --fasta`
 **Expects**: *FILE*<br>
 **Default**: *None*<br>
 The `-f` or `--fasta` option is used to specify the input FASTA file. The corresponding index file (`.fai`) should be in the same directory. ATaRVa uses [pysam](https://github.com/pysam-developers/pysam)'s `FastaFile` parser to read the input FASTA file.
 
-## Alignment file
-### `-b or --bam`
+### Alignment file
+#### `-b or --bam`
 **Expects**: *FILE*<br>
 **Default**: *None*<br>
 The `-b` or `--bam` option is used to specify one or more input alignment files in the same format. ATaRVa accepts any of the three alignment formats: SAM, BAM, or CRAM. The alignment file should be sorted by coordinates. The format should be specified using the `--format` option. The corresponding index file (`.bai` or `.csi`) should be located in the same directory. An alignment file can be sorted and indexed using the following commands:
@@ -156,8 +206,8 @@ If the alignment files were generated without any of these tags, you can generat
 # for generating MD tag
 $ samtools calmd -b aln.bam ref.fa > aln_md.bam
 ```
-## Region file
-### `-r or --regions`
+### Region file
+#### `-r or --regions`
 **Expects**: *FILE*<br>
 **Default**: *None*<br>
 The `-r` or `--regions` option is used to specify the input TR regions file. ATaRVa requires a sorted, bgzipped BED file of TR repeat regions, along with its corresponding tabix-indexed file. The BED file should contain the following columns:
@@ -180,7 +230,7 @@ Below is an example of a repeat region BED file. **NOTE: The BED file should eit
 
 To sort, bgzip, and index the BED file, use the following commands:
 
-### Sort
+#### Sort
 ```bash
 # input: Unsorted bed file
 # output: Sorted bed file
@@ -190,7 +240,7 @@ $ sort -k1,1 -k2,2n input.bed > sorted_output.bed
 # or using bedtools
 $ bedtools sort -i input.bed > sorted_output.bed
 ```
-### Bgzip
+#### Bgzip
 ```bash
 # input: Sorted bed file
 # output: bgzipped bed file
@@ -200,7 +250,7 @@ $ bgzip -c sorted_output.bed > sorted_output.bed.gz
 # or to compress the original file; converts sorted_output.bed to sorted_output.bed.gz
 $ bgzip sorted_output.bed
 ```
-### Index
+#### Index
 ```bash
 # input: bgzipped bed file
 # output: tabix indexed file (.tbi)
@@ -208,202 +258,50 @@ $ bgzip sorted_output.bed
 # install samtools to use tabix
 $ tabix -p bed sorted_output.bed.gz
 ```
+For detailed information on advanced genotyping options, refer to the [Advanced Commands and Usage](./docs/genotype_usage.md) documentation.
 
-### `--format`
-**Expects**: *STRING*<br>
-**Default**: *bam*<br>
-This option sets the format of the alignment file. The default format is BAM. Specify the input format as `sam` for SAM files, `cram` for CRAM files, or `bam` for BAM files.  
+## `merge` command
+`atarva merge` merges VCF files generated by ATaRVa. The tool is optimized to handle large datasets efficiently by reading and processing multiple files in small chunks, thereby avoiding excessive memory usage and ensuring fast, memory-efficient execution.
 
-### `-q or --map-qual`
-**Expects**: *INTEGER*<br>
-**Default**: *5*<br>
-Minimum mapping quality for the reads to be considered. All reads with a mapping quality below the specified value will be excluded during genotyping.
+The tool requires the following inputs:
+- BGZipped and tabix-indexed VCF files
+- A BGZipped and tabix-indexed BED file specifying the regions of interest
 
-### `--contigs`
-**Expects**: *STRING*<br>
-**Default**: *None*<br>
-Specify the chromosome(s) for genotyping; repeat loci on all other chromosomes will be skipped. If no chromosomes are mentioned, repeats on all chromosomes in the BED file will be genotyped. eg: `--contigs chr1 chr12 chr22` will genotype only the repeat loci in these mentioned chromosomes in the BED file.
+The help message and available options can be accessed using
 
-### `--min-reads`
-**Expects**: *INTEGER*<br>
-**Default**: *10*<br>
-Minimum number of the supporting reads required to genotype a locus. If the number of reads is less than this value, the locus will be skipped.
-
-### `--max-reads`
-**Expects**: *INTEGER*<br>
-**Default**: *100*<br>
-Maximum number of supporting reads allowed for a locus to be genotyped. If the number of reads exceeds this limit, only this specified number of reads will be used for genotyping the locus.
-
-### `--snp-dist`
-**Expects**: *INTEGER*<br>
-**Default**: *3000*<br>
-Maximum base pair (bp) distance from the flanks of the repeat locus to fetch SNPs from each read considered for phasing.
-
-### `--snp-count`
-**Expects**: *INTEGER*<br>
-**Default**: *3*<br>
-Maximum number of SNPs to be used for read clustering and phasing.
-
-### `--snp-qual`
-**Expects**: *INTEGER*<br>
-**Default**: *13*<br>
-Minimum Q value of the SNPs to be used for phasing.
-
-### `--flank`
-**Expects**: *INTEGER*<br>
-**Default**: *10*<br>
-The number of base pairs in the flanking regions to be used for realignment.
-
-### `--snp-read`
-**Expects**: *FLOAT*<br>
-**Default**: *0.2*<br>
-Minimum fraction of SNPs in the supporting reads of the repeat locus allowed for phasing.
-
-### `--meth-prob`
-**Expects**: *FLOAT*<br>
-**Default**: *0.5*<br>
-Minimum probability value of methylation call to be considered for calculation, in the supporting reads of the repeat locus.
-
-### `--phasing-read`
-**Expects**: *FLOAT*<br>
-**Default**: *0.4*<br>
-Minimum fraction of reads required in both clusters relative to the total supporting reads for the repeat locus after phasing.
-
-### `-o or --vcf`
-**Expects**: *STRING (to be used as filename)*<br>
-**Default**: *Input Alignment Filename + .vcf*<br>
-If this option is not provided, the default output filename will be the same as the input alignment filename, with its extension replaced with '.vcf'. For example, if the input filename is `input.bam`, the default output filename will be `input.vcf`. If the input filename does not have any extension, .vcf will be appended to the filename.
-Each entry includes the fields specified in the [Variant Calling Format (VCF)](https://samtools.github.io/hts-specs/VCFv4.3.pdf), as described in the table below.
-|     FIELD     |           DESCRIPTION           | 
-|---------------|---------------------------------|
-| CHROM | Chromosome that contains the repeat region |
-| POS | Start position of the repeat region |
-| ID |  Region identifier (set to '.') |
-| REF | Reference sequence of the repeat region |
-| ALT | Sequence of the repeat alleles in the sample |
-| QUAL | Quality score of the genotype (set to '0') |
-| FILTER | Filter status (PASS, LESS_READS) |
-| INFO | Information about the TR region |
-| FORMAT | Data type of the genotype information |
-| SAMPLE | Values of the genotype information for the TR region |
-
-#### INFO fields
-The `INFO` field describes the general structure of the repeat region and includes the following details:
-|     INFO      |           DESCRIPTION           | 
-|---------------|---------------------------------|
-| AC | Total number of respective ALT alleles in called genotypes |
-| AN | Total number of alleles in called genotypes |
-| MOTIF | Motif of the repeat region |
-| START | Start position of the repeat region |
-| END | End position of the repeat region |
-| ID  | Tag fetched form the extra column in BED file |
-
-**NOTE: The `ID` tag name depends on the optional column name in the BED file. If the BED file does not have a header, then the tag will be ID.**
-
-#### FORMAT fields
-The `FORMAT` fields and their values are provided in the last two columns of the VCF file, containing information about each genotype call. These columns include the following fields:  
-|     FORMAT      |           DESCRIPTION           | 
-|-----------------|---------------------------------|
-| GT | Genotype of the sample |
-| AL | Length of the alleles in base pairs |
-| AR | Central 95% range of allele lengths in each cluster |
-| SD | Number of supporting reads for each alleles |
-| DP | Number of the supporting reads for the repeat locus |
-| SN | Number of SNPs used for phasing |
-| SQ | Phred-scale qualities of the SNPs used for phasing |  
-| MM | Mean methylation level for each allele | 
-| MR | Number of reads supporting methylation info for each allele | 
-| DS | Motif decomposed sequence of the alternate alleles |
-
-**NOTE: Loci missing in the VCF either have no reads mapped to them, contain reads that do not fully enclose the repeat region, or have reads with low mapping quality (mapQ).**
-
-### `--karyotype`
-**Expects**: *STRING*<br>
-**Default**: *XX*<br>
-Karyotype of the samples eg. XX or XY.
-
-### `-t or --threads`
-**Expects**: *INTEGER*<br>
-**Default**: *1*<br>
-Number of threads to use for the process.
-
-### `--haplotag`
-**Expects**: *STRING*<br>
-**Default**: *None*<br>
-Specify the haplotype tag to utilize phased information for genotyping. eg `HP`
-
-### `--decompose`
-Performs motif-decomposition on ALT sequences.<br>
-**NOTE: Only applicable for motif length <= 10**
-
-### `--amplicon`
-Genotyping mode for targeted sequencing data. In this mode, the default values for `max-reads` and `flank` values are 1000 and 20 respectively.
-
-### `--read-wise`
-Classical ATaRVa genotyping mode, where loci are genotyped read-wise, utilizing the length advantage of the long reads to genotype multiple loci simultaneously (default : True)
-
-### `--loci-wise`
-Genotyping mode for BED files with sparse regions across chromosomes or for BED files containing a small number of loci(<500). In this mode, loci are genotyped independently rather than using a read-wise approach.
-
-### `-v or --version`
-Prints the version info of ATaRVa.
-
-## Examples
-The following examples assume the input reference genome is in `FASTA` format and is named ref.fa, the alignment file is in `BAM` format and is named input.bam, and the TR regions file is in `BED` format and is named regions.bed.gz.
-
-### Basic usage
-To run ATaRVa with default parameters, use the following command:
 ```bash
-$ atarva -f ref.fa --bam input.bam -r regions.bed.gz
+$ atarva merge -h
+#  or
+$ atarva merge --help
 ```
-### With karyotype
-To run ATaRVa with sex chromosome karyotype, use the following command:
-```bash
-$ atarva -f ref.fa --bam input.bam -r regions.bed.gz --karyotype XY
-```
-With multiple bams:
-```bash
-$ atarva -f ref.fa --bam input1.bam input2.bam -r regions.bed.gz --karyotype XY XX
-```
-### With haplotag
-To run ATaRVa on haplotagged alignment file, use the following command:
-```bash
-$ atarva -f ref.fa --bam input.bam -r regions.bed.gz --haplotag HP
-```
-### With amplicon
-To run ATaRVa on targeted sequencing file, use the following command:
-```bash
-$ atarva -f ref.fa --bam input.bam -r regions.bed.gz --amplicon
-```
-### Stringent parameter usage
-To run ATaRVa with stringent parameters, use the following command:
-```bash
-$ atarva -q 20 --snp-count 5 --snp-qual 25 --min-reads 20 -t 32 -fi ref.fa --bam input.bam -r regions.bed.gz
-# The above command with --snp-count 5 will use a maximum of five heterozygous SNPs to provide accurate genotypes, but only when phasing is based on SNPs and not on length.
-```
-### Genotyping TRs from specific chromosome/s
-To genotype TRs from specific chromosomes only, run ATaRVa with the following command:
-```bash
-$ atarva --contigs chr9 chr15 chr17 chrX -t 32 -f ref.fa --bam input.bam -r regions.bed.gz
-```
-### For input alignment file other than `bam`
-```bash
-# input cram file
-$ atarva --format cram -f ref.fa --bam input.cram -r regions.bed.gz
+which gives the following output
 
-# input sam file
-$ atarva --format sam -f ref.fa --bam input.sam -r regions.bed.gz
 ```
-### Usage in docker
-To run ATaRVa in docker container, use the following command:
-```bash
-$ docker run -i -t --rm -v /path_of_necessary_files/:/folder_name atarva:latest -f /folder_name/ref.fa --bam /folder_name/input.bam -r /folder_name/regions.bed.gz
-``` 
+usage: atarva merge [-h] -r <FILE> -i <FILE> [<FILE> ...] -f <FILE> [--contigs CONTIGS [CONTIGS ...]] [-o <STR>] [-p <INT>]
 
-In all the above examples, the output of ATaRVa is saved to input.vcf unless -o is specified.
+Required arguments:
+  -r <FILE>, --regions <FILE>
+                        input regions file. the regions file should be strictly in bgzipped tabix format. If the regions input file is in bed format. First sort it using bedtools. Compress it using
+                        bgzip. Index the bgzipped file with tabix command from samtools package.
+  -i <FILE> [<FILE> ...], --vcfs <FILE> [<FILE> ...]
+                        text file containing paths to input vcf files to be merged. The text file should list each path on a separate line. The vcf files should be strictly in bgzipped tabix format. If
+                        the vcfs input file is in vcf format. First sort it using bcftools. Compress it using bgzip. Index the bgzipped file with tabix command from samtools package.
+  -f <FILE>, --fasta <FILE>
+                        input reference fasta file. The file should be indexed.
+
+Optional arguments:
+  --contigs CONTIGS [CONTIGS ...]
+                        contigs to get merged [chr1 chr12 chr22 ..]. If not mentioned every contigs in the region file will be merged.
+  -o <STR>, --outname <STR>
+                        name of the output file, output is in vcf format.
+  -t <INT>, --threads <INT>
+                        number of threads. [default: 1]
+```
+**NOTE: This will merge only those loci that are present in the input BED file** <br>
+For detailed information on advanced merging options, refer to the [Tamatr](./docs/merge_usage.md) documentation.
 
 ## Changelog
-### v0.4.1
+### v0.5.0
 * Changed the VCF-START column into 1-based coordinate system
 * Included `START` tag in VCF-INFO column with 0-based coordinate system
 * Added `MR` tags in the VCF_SAMPLE column to report the supporting read count for mean methylation level

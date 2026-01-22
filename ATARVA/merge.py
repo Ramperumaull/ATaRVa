@@ -23,7 +23,7 @@ def merge_parser(subparsers):
     optional = parser.add_argument_group('Optional arguments')
     optional.add_argument('--contigs', nargs='+', help='contigs to get merged [chr1 chr12 chr22 ..]. If not mentioned every contigs in the region file will be merged.')
     optional.add_argument('-o', '--outname', type=str, metavar='<STR>', default='', help='name of the output file, output is in vcf format.')
-    optional.add_argument('-p',  '--processor', type=int, metavar='<INT>', default=1, help='number of processor. [default: 1]')
+    optional.add_argument('-t',  '--threads', type=int, metavar='<INT>', default=1, help='number of threads. [default: 1]')
 
     if (len(sys.argv) == 2) and (sys.argv[1] == 'merge'):
         parser.print_help()
@@ -59,7 +59,7 @@ def merge_run(args):
     # args = parse_args()
 
     for arg in vars(args):
-        if arg=='func': continue
+        if arg in ['func', 'command']: continue
         print (arg, getattr(args, arg))
     print('\n')
     
@@ -96,9 +96,9 @@ def merge_run(args):
             for row in tbx.fetch(each_contig):
                 total_loci += 1
     
-    print('total_loci = ', total_loci)
+    # print('total_loci = ', total_loci)
 
-    threads = args.processor
+    threads = args.threads
     threads = threads - 1
 
     
@@ -139,8 +139,8 @@ def merge_run(args):
     fetcher.extend(current_split)
     tbx.close()
 
-    print('Length of fetcher = ', len(fetcher))
-    print('partition_point for fetcher = ', partition_point)
+    # print('Length of fetcher = ', len(fetcher))
+    # print('partition_point for fetcher = ', partition_point)
     # fetcher = fetcher[:2]
 
     region_file = args.regions
@@ -152,7 +152,7 @@ def merge_run(args):
         reader_threads = thread_list[0]
         partition = len(fetcher) // reader_threads
         # print('reader_threads = ', reader_threads)
-        print('partition for reading = ', partition)
+        # print('partition for reading = ', partition)
         initial = 0
         track = partition
         for each_reader_thread in range(reader_threads):
@@ -160,7 +160,7 @@ def merge_run(args):
                 reader_contigs = fetcher[initial : ]
             else:
                 reader_contigs = fetcher[initial : track]
-            print('Thread = ', each_reader_thread, ' contig length = ', len(reader_contigs))    
+            # print('Thread = ', each_reader_thread, ' contig length = ', len(reader_contigs))    
             thread_x = Process(target = reader, args = (out_file, region_file, ref_file, vcf_list, reader_contigs, each_reader_thread, thread_list[each_reader_thread+1]))
             thread_x.start()
             reader_thread_pool.append(thread_x)
