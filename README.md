@@ -73,9 +73,9 @@ $ docker build --network host -t atarva
 The help message and available subcommands can be accessed using
 
 ```bash
-$ atarva genotype -h
+$ atarva -h
 #  or
-$ atarva genotype --help
+$ atarva --help
 ```
 which gives the following output
 
