@@ -210,9 +210,11 @@ def process_locus(locus_key, global_loci_variations, global_read_variations, glo
                     continue
 
                 meth_count += 1
-                meth_encode.append(each_pos[1]//4) # encoding the probability in base64
                 if current_prob >= meth_cutoff:
-                    meth_qual += 1 #each_pos[1]/255
+                    meth_encode.append(1) # encoding the probability as binary
+                    meth_qual += 1
+                else:
+                    meth_encode.append(0) # encoding the probability as binary
             
         if meth_count > 0:
             avg_qual = meth_qual/meth_count
