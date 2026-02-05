@@ -235,7 +235,7 @@ The `FORMAT` fields and their values are provided in the last two columns of the
 | DP | Number of the supporting reads for the repeat locus |
 | SN | Number of SNPs used for phasing |
 | SQ | Phred-scale qualities of the SNPs used for phasing |  
-| MM | Mean methylation level for each allele | 
+| MA | Mean methylation level for each allele | 
 | MR | Number of reads supporting methylation info for each allele | 
 | DS | Motif decomposed sequence of the alternate alleles |
 | MV | Visual methylation encodings for the alleles |

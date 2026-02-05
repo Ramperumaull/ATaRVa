@@ -13,7 +13,7 @@ def vcf_writer(out, bam, bam_name):
     vcf_header = pysam.VariantHeader()
 
     # command
-    vcf_header.add_line(f"##command=ATaRVa_0.4.1 {' '.join(sys.argv)}")
+    vcf_header.add_line(f"##command=ATaRVa_0.6.0 {' '.join(sys.argv)}")
 
     for contig in bam.header['SQ']:
         vcf_header.contigs.add(contig['SN'], length=contig['LN'])
@@ -39,7 +39,7 @@ def vcf_writer(out, bam, bam_name):
     vcf_header.formats.add("DP", number=1, type="Integer", description="Number of the supporting reads for the repeat locus")
     vcf_header.formats.add("SN", number='.', type="Integer", description="Number of SNPs used for phasing")
     vcf_header.formats.add("SQ", number='.', type="Float", description="Phred-scale qualities of the SNPs used for phasing")
-    vcf_header.formats.add("MM", number='.', type="Float", description="Mean methylation level for each allele")
+    vcf_header.formats.add("MA", number='.', type="Float", description="Mean methylation level for each allele")
     vcf_header.formats.add("MR", number='.', type="Integer", description="Number of reads providing methylation info for each allele")
     vcf_header.formats.add("DS", number='A', type="String", description="Motif decomposed sequence")
     vcf_header.formats.add("MV", number='.', type="String", description="Visual methylation encodings for the alleles")
@@ -65,7 +65,7 @@ def vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, homozygous_a
     ref_allele_length = locus_end - locus_start
 
     AC = 0; AN = 2; GT = '0/0'; ALT = '.'; alt_state = False
-    MM = ','.join(meth_prob)
+    MA = ','.join(meth_prob)
     MV = ','.join(meth_vistag)
     if homozygous_allele != ref_allele_length:
         AC = 2
@@ -92,9 +92,9 @@ def vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, homozygous_a
         else:
             deseq = '.'
 
-    FORMAT = 'GT:AL:AR:SD:DP:SN:SQ:MM:MR:DS:MV'
+    FORMAT = 'GT:AL:AR:SD:DP:SN:SQ:MA:MR:DS:MV'
     if not haploid_state:
-        SAMPLE = str(GT) + ':' + str(homozygous_allele) + ',' + str(homozygous_allele) + ':' + allele_range + ':' + str(reads_len) + ':' + str(DP) + ':.:.' + ':' + MM + ':' + meth_reads + ':' + deseq + ':' + MV
+        SAMPLE = str(GT) + ':' + str(homozygous_allele) + ',' + str(homozygous_allele) + ':' + allele_range + ':' + str(reads_len) + ':' + str(DP) + ':.:.' + ':' + MA + ':' + meth_reads + ':' + deseq + ':' + MV
     else:
         SAMPLE = GT[0] + ':' + str(homozygous_allele) + ':' + allele_range + ':' + str(reads_len) + ':' + str(DP) + ':.:.' + ':' + meth_prob[0] + ':' + meth_reads + ':' + deseq + ':' + MV
     
@@ -153,7 +153,7 @@ def vcf_heterozygous_writer(contig, genotypes, locus_start, locus_end, allele_co
             if ALT[0]!='<': alt_seqs.append(ALT)
             else: alt_seqs.append('')
         PC = str(phased_read[0])+','+str(phased_read[1])
-        MM = ','.join(meth_prob)
+        MA = ','.join(meth_prob)
         MR = ','.join(meth_reads)
         MV = ','.join(meth_vistag)
     else:
@@ -170,7 +170,7 @@ def vcf_heterozygous_writer(contig, genotypes, locus_start, locus_end, allele_co
                 ALT = ALT_reads[1]
                 if ALT[0]!='<': alt_seqs.append(ALT)
                 else: alt_seqs.append('')
-                MM = ','.join(meth_prob)
+                MA = ','.join(meth_prob)
                 MR = ','.join(meth_reads)
                 MV = ','.join(meth_vistag)
             else:
@@ -181,7 +181,7 @@ def vcf_heterozygous_writer(contig, genotypes, locus_start, locus_end, allele_co
                 else: alt_seqs.append('')
                 alt_seqs.append(None) # dummy added for ref, to keep the length of alt_seqs as 2
                 allele_range = ','.join(allele_range.split(',')[::-1]) # reverse the allele range to keep the order consistent with GT
-                MM = ','.join(meth_prob[::-1]) # reverse the meth_prob to keep the order consistent with GT
+                MA = ','.join(meth_prob[::-1]) # reverse the meth_prob to keep the order consistent with GT
                 MR = ','.join(meth_reads[::-1])
                 MV = ','.join(meth_vistag[::-1])
         else:
@@ -200,7 +200,7 @@ def vcf_heterozygous_writer(contig, genotypes, locus_start, locus_end, allele_co
             else: alt_seqs.append('')
 
             ALT = ALT1 + ',' + ALT2
-            MM = ','.join(meth_prob)
+            MA = ','.join(meth_prob)
             MR = ','.join(meth_reads)
             MV = ','.join(meth_vistag)
 
@@ -231,8 +231,8 @@ def vcf_heterozygous_writer(contig, genotypes, locus_start, locus_end, allele_co
                     ds.append('.')
             deseq = ','.join(ds)
      
-    FORMAT = 'GT:AL:AR:SD:DP:SN:SQ:MM:MR:DS:MV'
-    SAMPLE = str(GT)+':'+heterozygous_allele+':' + allele_range + ':' + SD + ':' + str(DP) + ':' + str(snp_num) + ':' + chosen_snpQ + ':' + MM + ':' + MR + ':' + deseq + ':' + MV
+    FORMAT = 'GT:AL:AR:SD:DP:SN:SQ:MA:MR:DS:MV'
+    SAMPLE = str(GT)+':'+heterozygous_allele+':' + allele_range + ':' + SD + ':' + str(DP) + ':' + str(snp_num) + ':' + chosen_snpQ + ':' + MA + ':' + MR + ':' + deseq + ':' + MV
 
     del ALT_reads
     del alt_seqs
@@ -257,7 +257,7 @@ def vcf_fail_writer(contig, locus_key, global_loci_info, ref, out, DP, skip_poin
     locus_key = f'{contig}:{locus_start}-{locus_end}'
 
     INFO = 'AC=0;AN=0;MOTIF=' + str(global_loci_info[locus_key][3]) + ';START=' + str(locus_start) + ';END=' + str(locus_end) + optional_tag
-    FORMAT = 'GT:AL:AR:SD:DP:SN:SQ:MM:MR:DS:MV'
+    FORMAT = 'GT:AL:AR:SD:DP:SN:SQ:MA:MR:DS:MV'
     SAMPLE = '.:.:.:.:.:.:.:.:.:.:.'
 
     print(*[contig, locus_start+1, '.',  ref.fetch(contig, locus_start, locus_end), '.', 0, FILTER, INFO, FORMAT, SAMPLE], file=out, sep='\t')
@@ -303,7 +303,7 @@ def vcf_multizygous_writer(contig, genotype_dict, locus_start, locus_end, DP, gl
     AL = []
     AR = []
     SD = []
-    MM = []
+    MA = []
     MR = []
     deseq = []
     MV = []
@@ -315,7 +315,7 @@ def vcf_multizygous_writer(contig, genotype_dict, locus_start, locus_end, DP, gl
         AL.append(GT_dict[gt_key][1])
         SD.append(str(GT_dict[gt_key][2]))
         AR.append(GT_dict[gt_key][3])
-        MM.append(str(GT_dict[gt_key][4]) if GT_dict[gt_key][4] is not None else '.')
+        MA.append(str(GT_dict[gt_key][4]) if GT_dict[gt_key][4] is not None else '.')
         MR.append(str(GT_dict[gt_key][5]) if GT_dict[gt_key][5] is not None else '.')
         MV.append(str(GT_dict[gt_key][7]) if GT_dict[gt_key][5] is not None else '.')
     del GT_dict
@@ -325,7 +325,7 @@ def vcf_multizygous_writer(contig, genotype_dict, locus_start, locus_end, DP, gl
     AL = ','.join(AL)
     AR = ','.join(AR)
     SD = ','.join(SD)
-    MM = ','.join(MM)
+    MA = ','.join(MA)
     MR = ','.join(MR)
     MV = ','.join(MV)
         
@@ -340,9 +340,9 @@ def vcf_multizygous_writer(contig, genotype_dict, locus_start, locus_end, DP, gl
     else:
         deseq = '.'
 
-    FORMAT = 'GT:AL:AR:SD:DP:SN:SQ:MM:MR:DS:MV'
-    SAMPLE = GT + ':' + AL + ':' + AR + ':' + SD + ':' + str(DP) + ':.:.:' + MM + ':' + MR + ':' + deseq + ':' + MV
+    FORMAT = 'GT:AL:AR:SD:DP:SN:SQ:MA:MR:DS:MV'
+    SAMPLE = GT + ':' + AL + ':' + AR + ':' + SD + ':' + str(DP) + ':.:.:' + MA + ':' + MR + ':' + deseq + ':' + MV
 
     print(*[contig, locus_start+1, '.',  ref_seq, ALT, 0, 'PASS', INFO, FORMAT, SAMPLE], file=out, sep='\t')
 
-    del GT, ALT, AL, AR, SD, MM, MR, MV, deseq, global_loci_info[locus_key]
+    del GT, ALT, AL, AR, SD, MA, MR, MV, deseq, global_loci_info[locus_key]

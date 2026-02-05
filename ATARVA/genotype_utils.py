@@ -14,7 +14,7 @@ def homo_vcf_call(alen, read_seqs, haplotypes, DP, amplicon, motif_size, ref, co
     allele_range = f'{lower1}-{upper1},{lower1}-{upper1}'
     ALT, allele_length, decomp_seq, repeativity = alt_sequence(read_seqs, haplotypes, amplicon, motif_size)
     if repeativity:
-        meth_info = methylation_calc(haplotypes, global_loci_variations, locus_key)
+        meth_info = methylation_calc(haplotypes, global_loci_variations, locus_key, ALT)
         vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, allele_length, len(haplotypes), DP, out, ALT, log_bool, 'kmeans', decomp, hallele_counter, False, allele_range, decomp_seq, meth_info)
     else:
         return [False, 6]
@@ -45,7 +45,7 @@ def hetero_vcf_call(haplotypes, read_seqs, amplicon, motif_size, new_alen, conti
         else:
             allele_count[str(allele_length)] = len(hap_reads)
 
-        meth_info.append(methylation_calc(hap_reads, global_loci_variations, locus_key))
+        meth_info.append(methylation_calc(hap_reads, global_loci_variations, locus_key, ALT))
 
     lower1,upper1 = confidence_interval(alen_c1)
     lower2,upper2 = confidence_interval(alen_c2)
@@ -148,7 +148,7 @@ def length_genotyper(hallele_counter, global_loci_info, global_loci_variations, 
             lower,upper = confidence_interval(mal)
             allele_range = f'{lower}-{upper}'
             ALT, allele_length, decomp_seq, repeativity = alt_sequence(read_seqs, mac, amplicon, motif_size)
-            meth_info = methylation_calc(mac, global_loci_variations, locus_key)
+            meth_info = methylation_calc(mac, global_loci_variations, locus_key, ALT)
             if repeativity:
                 vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, allele_length, len(mac), len(read_indices), out, ALT, log_bool, 'kmeans', decomp, hallele_counter, True, allele_range, decomp_seq, meth_info)
             else:
@@ -295,7 +295,7 @@ def analyse_genotype(contig, locus_key, global_loci_info,
         else:
             allele_count[str(allele_length)] = len(hap_reads)
 
-        meth_info.append(methylation_calc(hap_reads, global_loci_variations, locus_key))
+        meth_info.append(methylation_calc(hap_reads, global_loci_variations, locus_key, ALT))
 
     del read_seqs
     lower1,upper1 = confidence_interval(alen_list[0])

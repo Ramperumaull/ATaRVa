@@ -198,27 +198,36 @@ def process_locus(locus_key, global_loci_variations, global_read_variations, glo
         # calculating average methylation probability at the locus for each read
         meth_count = 0
         meth_qual = 0
+        meth_pos = []
         meth_encode = []
         upper_bound = meth_cutoff
         lower_bound = 1 - meth_cutoff
         for each_pos in read_mod_bases:
             if adj_start <= each_pos[0] <= adj_end:
-
+                repeat_base_pos = each_pos[0] - adj_start # position of the CG wrt the repeat start
                 current_prob = each_pos[1]/255
                 if lower_bound < current_prob < upper_bound: # skip the MM if it is within the lower and upper bound; only store the extremies
+                    meth_pos.append(repeat_base_pos)
                     meth_encode.append(-1) # to indicate skipped positions
                     continue
 
                 meth_count += 1
-                meth_encode.append(each_pos[1]//4) # encoding the probability in base64
                 if current_prob >= meth_cutoff:
-                    meth_qual += 1 #each_pos[1]/255
+                    meth_pos.append(repeat_base_pos)
+                    meth_encode.append(1) # encoding the probability as binary
+                    meth_qual += 1
+                else:
+                    meth_pos.append(repeat_base_pos)
+                    meth_encode.append(0) # encoding the probability as binary
             
         if meth_count > 0:
             avg_qual = meth_qual/meth_count
-            locus_read_meth[each_read] = (round(avg_qual, 2), meth_encode) # storing meth level and position meth prob encoding
+            locus_read_meth[each_read] = (round(avg_qual, 2), meth_encode, meth_pos) # storing meth level, position meth prob encoding and meth occurrence positions
+            # print(query[new_start:new_end], meth_pos)
         else:
             locus_read_meth[each_read] = None
+
+        # print(meth_encode)
                 
 
     if log_bool: logger.debug(f"{locus_key};Larger_ins={ILR};Partial_ins={PI};Complete_ins={CI}")

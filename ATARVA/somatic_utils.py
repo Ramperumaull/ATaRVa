@@ -72,7 +72,7 @@ def correlation_clustering(read_seqs, read_indices, motif_size, global_loci_vari
             alt_seqs.add(ALT) 
 
         ci = confidence_interval([len(read_seqs[read_id][0]) for read_id in hap_reads])
-        meth_info = methylation_calc(hap_reads, global_loci_variations, locus_key)
+        meth_info = methylation_calc(hap_reads, global_loci_variations, locus_key, ALT)
         if allele_length not in genotype_dict:
             genotype_dict[allele_length] = (ALT, ci, decomp_seq, len(hap_reads), meth_info)
         else:

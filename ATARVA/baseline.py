@@ -47,7 +47,12 @@ def locus_processor(global_loci_keys, global_loci_ends, global_loci_variations, 
                 ALT = '.'
 
             lower,upper = confidence_interval(homo_alen_list)
-            meth_info = methylation_calc(reads_of_homozygous, global_loci_variations, locus_key)
+
+            if ALT != '.':
+                meth_info = methylation_calc(reads_of_homozygous, global_loci_variations, locus_key, ALT)
+            else:
+                meth_info = methylation_calc(reads_of_homozygous, global_loci_variations, locus_key, ref.fetch(Chrom, lstart, lend))
+
             if male:
                 allele_range = f'{lower}-{upper}'
             else:

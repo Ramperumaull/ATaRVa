@@ -2,6 +2,7 @@ import hdbscan
 import numpy as np
 import warnings
 import statistics
+import regex as re
 from ATARVA.consensus import *
 from ATARVA.decomp_utils import motif_decomposition
 
@@ -13,7 +14,7 @@ def set_methviz_tag(value):
 # base64 encodings
 encode64_dict = {0: 'A', 1: 'B', 2: 'C', 3: 'D', 4: 'E', 5: 'F', 6: 'G', 7: 'H', 8: 'I', 9: 'J', 10: 'K', 11: 'L', 12: 'M', 13: 'N', 14: 'O', 15: 'P', 16: 'Q',17: 'R', 18: 'S', 19: 'T', 20: 'U', 21: 'V', 22: 'W',
                 23: 'X', 24: 'Y', 25: 'Z', 26: 'a', 27: 'b', 28: 'c', 29: 'd', 30: 'e', 31: 'f', 32: 'g', 33: 'h', 34: 'i', 35: 'j', 36: 'k', 37: 'l', 38: 'm', 39: 'n', 40: 'o', 41: 'p', 42: 'q', 43: 'r', 44: 's',
-                45: 't', 46: 'u', 47: 'v', 48: 'w', 49: 'x', 50: 'y', 51: 'z', 52: '0', 53: '1', 54: '2', 55: '3', 56: '4', 57: '5', 58: '6', 59: '7', 60: '8', 61: '9',62: '+', 63: '/'}
+                45: 't', 46: 'u', 47: 'v', 48: 'w', 49: 'x', 50: 'y', 51: 'z', 52: '0', 53: '1', 54: '2', 55: '3', 56: '4', 57: '5', 58: '6', 59: '7', 60: '8', 61: '9',62: '+', 63: '/', 64: '/'}
 
 def dbscan(data, hap_reads):
     data = np.array(data).reshape(-1, 1)
@@ -72,25 +73,26 @@ def mm_tag_extract(pos_qual, meth_start, meth_end, read_sequence, meth_cutoff, f
                     read_meth_range.append(each_pos)
     return read_meth_range
             
-def methylation_calc(hap_reads, global_loci_variations, locus_key):
+def methylation_calc(hap_reads, global_loci_variations, locus_key, ALT_seq):
     meth_reads = 0
     hap_meth = 0
     encrypted_meth = None
     locus_read_meth = global_loci_variations[locus_key]['read_meth']
     matrix = []
-    max_meth = 0
+    pos_matrix = []
     for read_id in hap_reads:
         if locus_read_meth[read_id] is not None:
             meth_reads += 1
             hap_meth += locus_read_meth[read_id][0]
             meth_probs = locus_read_meth[read_id][1]
-            if len(meth_probs) > max_meth: # getting max length to pad the matrix
-                max_meth = len(meth_probs)
-            matrix.append(meth_probs)
+            # for meth visualization
+            if methviz_tag:
+                matrix.append(meth_probs)
+                pos_matrix.append(locus_read_meth[read_id][2])
             
     if meth_reads > 0:
         if methviz_tag:
-            encrypted_meth = methylation_encoding(matrix, max_meth)
+            encrypted_meth = methylation_encoding(matrix, pos_matrix, ALT_seq)
         return [round(hap_meth/meth_reads, 2), meth_reads, encrypted_meth]
     else:
         return [None, None, None]
@@ -118,13 +120,91 @@ def alt_sequence(read_seqs, hap_reads, amplicon, motif_size):
             repeativity = False
     return [ALT, allele_length, decomp_seq, repeativity]
 
-def methylation_encoding(matrix, max_meth):
+def pos_diffs(pos_list):
+    diffs = []
+    for idx,pos in enumerate(pos_list):
+        if idx == 0:
+            diffs.append(pos)
+            prev_val = pos
+        else:
+            diffs.append(pos - prev_val)
+            prev_val = pos
+    return diffs
+
+def pos_align(cons_pos, cons_diff, read_pos):
+    read_diff = pos_diffs(read_pos)
+    remainder = 0
+    crossed_read_pos = 0
+    final_read_idx = [] # position index to take from read_pos
+    read_pos_len = len(read_diff)
+    longer_read_pos = read_pos_len >= len(cons_pos)
+
+    for idx, true_diff in enumerate(cons_diff):    
+        tmp_len = len(final_read_idx)
+        # Finding the start pos to begin aligning
+        if longer_read_pos and (idx == 0) and (crossed_read_pos == 0): # when the read_pos are more in nu. compared to true pos
+            tmp_diff = read_diff[crossed_read_pos] - true_diff
+            if abs(tmp_diff) < 4: # Initial tagging of true & read meth pos can have a tolerance of 3bp on either direction
+                final_read_idx.append(idx) # idx is zero here
+                remainder = tmp_diff
+                crossed_read_pos += 1
+            else:
+                jump_dist = cons_pos[idx] - read_pos[idx] # adjusting position by sliding the values from the initial position
+                tmp_read_pos = [i - jump_dist for i in read_pos]
+
+                distance_ins = [abs(cons_pos[idx] - i) for i in tmp_read_pos] # adjusted pos
+                distance_nor = [abs(cons_pos[idx] - i) for i in read_pos] # normal pos
+                min_dist_list = [sum(distance_nor), sum(distance_ins)]
+                
+                if min_dist_list.index(min(min_dist_list)) == 0: # checkpoint for finding optimal start position
+                    crossed_read_pos = distance_nor.index(min(distance_nor))
+                else:
+                    crossed_read_pos = distance_ins.index(min(distance_ins))
+
+                final_read_idx.append(crossed_read_pos)
+                
+                crossed_read_pos += 1
+            continue
+            
+        check_pos = remainder
+        check_diff = [100000] # list of diffs
+        while crossed_read_pos < read_pos_len:
+            check_pos += read_diff[crossed_read_pos] # incrementing to compare the diffs
+            
+            if abs(check_pos - true_diff) > min(check_diff): # choose the previous pos, if the current diff started to increase
+                if crossed_read_pos-1 not in final_read_idx:
+                    final_read_idx.append(crossed_read_pos-1)
+                    remainder = (check_pos - read_diff[crossed_read_pos]) - true_diff
+                break
+            elif (crossed_read_pos+1 == read_pos_len) and abs(true_diff-read_diff[crossed_read_pos]) < 10: # for adding last pos
+                if crossed_read_pos not in final_read_idx:
+                    final_read_idx.append(crossed_read_pos)
+                crossed_read_pos += 1
+            else:
+                check_diff.append(abs(check_pos - true_diff))
+                crossed_read_pos += 1
+                
+        if tmp_len == len(final_read_idx):
+            final_read_idx.append(-2)
+            
+    return final_read_idx
+
+def methylation_encoding(matrix, pos_matrix, ALT_seq):
     encryted_meth = ''
-    for each_row in matrix:
-        if len(each_row) < max_meth:
-            diff = max_meth - len(each_row)
-            each_row.extend([-2]*diff)
-    for col in zip(*matrix):
+    cons_pos = [m.start() for m in re.finditer("CG", ALT_seq, overlapped=False)] # getting the pos of CGs in the ALT sequence
+    cons_diff = pos_diffs(cons_pos)
+    # Extracting only those positions which are within 2bp of true CG positions
+    new_pos_matrix = []
+    for read_pos in pos_matrix:
+        new_pos_matrix.append(pos_align(cons_pos, cons_diff, read_pos))
+
+    # Creating new matrix with only those positions
+    new_matrix = []
+    for idx,each_meth_cat in enumerate(matrix):
+        pos_list = new_pos_matrix[idx]
+        new_matrix.append([each_meth_cat[pos] if pos!=-2 else -2 for pos in pos_list])
+
+    for col in zip(*new_matrix):
         col_array = np.array(col)
         mode = statistics.mode(col_array)
         if mode == -2:
@@ -133,6 +213,72 @@ def methylation_encoding(matrix, max_meth):
             encryted_meth += '-' #adding - for ambiguous calls
         else:
             col_array = col_array[col_array != -1]
-            col_mean = round(np.mean(col_array))
+            col_array = col_array[col_array != -2]
+            col_mean = round(np.mean(col_array), 2) * 100
+            col_mean= round(col_mean/1.5625) # scaling to 0-64
             encryted_meth += encode64_dict[col_mean]
     return encryted_meth
+
+
+
+# def methylation_encoding(matrix, pos_matrix, ALT_seq):
+#     encryted_meth = ''
+#     start_positions = [m.start() for m in re.finditer("CG", ALT_seq, overlapped=False)] # getting the pos of CGs in the ALT sequence
+#     max_meth = len(start_positions)
+#     # print('ALT cg positions = ', start_positions)
+#     # Extracting only those positions which are within 2bp of true CG positions
+#     new_pos_matrix = []
+#     for each_pos in pos_matrix:
+#         # print(each_pos)
+#         len_of_pos_list = len(each_pos)
+#         current_pos_list = []
+#         tmp_pos_index = 0
+#         for true_pos in start_positions:
+#             skip = 0
+#             while tmp_pos_index < len_of_pos_list:
+#                 if abs(each_pos[tmp_pos_index] - true_pos) <=2:
+#                     current_pos_list.append(tmp_pos_index)
+#                     tmp_pos_index += 1
+#                     skip = 0
+#                     break
+#                 else:
+#                     tmp_pos_index += 1
+#                     skip += 1
+#             tmp_pos_index -= skip
+#         new_pos_matrix.append(current_pos_list)
+#         # print(current_pos_list, '\n')
+
+#     # Creating new matrix with only those positions
+#     new_matrix = []
+#     for idx,each_meth_cat in enumerate(matrix):
+#         pos_list = new_pos_matrix[idx]
+#         new_matrix.append([each_meth_cat[pos] for pos in pos_list])
+
+#     ################## PRINT #################################
+#     # print('Initial metrix')
+#     # for idd,e in enumerate(matrix):
+#     #     print(e, pos_matrix[idd])
+#     # print('\n**************************************\n')
+#     # print('Filtered metrix')
+#     # for idd,e in enumerate(new_matrix):
+#     #     print(e, new_pos_matrix[idd])
+
+#     for each_row in new_matrix:
+#         if len(each_row) < max_meth:
+#             diff = max_meth - len(each_row)
+#             each_row.extend([-2]*diff)
+#     for col in zip(*new_matrix):
+#         col_array = np.array(col)
+#         mode = statistics.mode(col_array)
+#         if mode == -2:
+#             pass # skipping the positions where there is error call in few reads
+#         elif mode == -1:
+#             encryted_meth += '-' #adding - for ambiguous calls
+#         else:
+#             col_array = col_array[col_array != -1]
+#             col_array = col_array[col_array != -2]
+#             col_mean = round(np.mean(col_array), 2) * 100
+#             col_mean= round(col_mean/1.5625) # scaling to 0-64
+#             encryted_meth += encode64_dict[col_mean]
+#     # print("TAG = ", encryted_meth)
+#     return encryted_meth
