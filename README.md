@@ -301,6 +301,15 @@ Optional arguments:
 For detailed information on advanced merging options, refer to the [Tamatr](./docs/merge_usage.md) documentation.
 
 ## Changelog
+### v0.6.0
+* Fixed an incorrect code modification that caused `--amplicon` mode to produce incorrect results in previous versions
+* Fixed bugs in `loci-wise` mode related to storing SNP info
+* Introduced subcommands to separate operating modes [`genotype` & `merge`]
+* Added `MV` tag in the VCF_SAMPLE column to report base-wise methylation level for visualization purpose
+* Changed the name of `MM` tag into `MA`
+* Improvised the mean methylation level calculation in `MA` tag
+* Increased the default `--snp-qual` from 13 to 20
+
 ### v0.5.0
 * Changed the VCF-START column into 1-based coordinate system
 * Included `START` tag in VCF-INFO column with 0-based coordinate system
