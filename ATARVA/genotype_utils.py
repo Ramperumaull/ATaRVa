@@ -14,7 +14,7 @@ def homo_vcf_call(alen, read_seqs, haplotypes, DP, amplicon, motif_size, ref, co
     allele_range = f'{lower1}-{upper1},{lower1}-{upper1}'
     ALT, allele_length, decomp_seq, repeativity = alt_sequence(read_seqs, haplotypes, amplicon, motif_size)
     if repeativity:
-        meth_info = methylation_calc(haplotypes, global_loci_variations, locus_key)
+        meth_info = methylation_calc(haplotypes, global_loci_variations, locus_key, ALT)
         vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, allele_length, len(haplotypes), DP, out, ALT, log_bool, 'kmeans', decomp, hallele_counter, False, allele_range, decomp_seq, meth_info)
     else:
         return [False, 6]
@@ -45,7 +45,7 @@ def hetero_vcf_call(haplotypes, read_seqs, amplicon, motif_size, new_alen, conti
         else:
             allele_count[str(allele_length)] = len(hap_reads)
 
-        meth_info.append(methylation_calc(hap_reads, global_loci_variations, locus_key))
+        meth_info.append(methylation_calc(hap_reads, global_loci_variations, locus_key, ALT))
 
     lower1,upper1 = confidence_interval(alen_c1)
     lower2,upper2 = confidence_interval(alen_c2)
@@ -108,12 +108,10 @@ def length_genotyper(hallele_counter, global_loci_info, global_loci_variations, 
 
     alen_c1 = [alen_data[i] for i in c1]
     alen_c2 = [alen_data[i] for i in c2]
-    # print('clust1 = ', set(alen_c1), len(alen_c1))
-    # print('clust2 = ', set(alen_c2), len(alen_c2))
+
 
     haplotypes = ([main_read_id[idx] for idx in c1], [main_read_id[idx] for idx in c2])
     cutoff = 0.15*len(alen_data) # 15%
-    # print('Initial cutoff = ', cutoff)
 
     br = False
     if c1 and c2:
@@ -123,19 +121,17 @@ def length_genotyper(hallele_counter, global_loci_info, global_loci_variations, 
             slide = max(max_val*0.1, 10)
             min_bound = min(alen_y)-slide
             max_bound = max_val+slide
-            # avg = sum(alen_x)/len(alen_x)
-            # if min_bound <= avg <= max_bound:
-            #     br = True
+
             for min_al in alen_x:
                 if min_bound <= min_al <= max_bound:
                     br = True
                     break
 
             if not br:
-                cutoff = int(max(0.05, len(alen_x) / len(alen_data)) * len(alen_data)) # min 5 % of total reads should be in the cluster
+                cutoff = int(max(0.03, len(alen_x) / len(alen_data)) * len(alen_data)) # min 3 % of total reads should be in the cluster
                 cutoff = max(2, cutoff) # min 2 reads should be there in cluster if WGS
                 if amplicon:
-                    cutoff = min(5, cutoff) # alteast 5 or 5% of reads should be in the cluster if amplicon
+                    cutoff = min(5, cutoff) # alteast 5 or 3% of reads should be in the cluster if amplicon
 
         if len(c1) < cutoff and len(c2) >= cutoff:
             process_conditions(alen_c1, alen_c2)
@@ -143,7 +139,6 @@ def length_genotyper(hallele_counter, global_loci_info, global_loci_variations, 
         elif len(c2) < cutoff and len(c1) >= cutoff:
             process_conditions(alen_c2, alen_c1)
 
-    # print('Final cutoff = ', cutoff)
     if male:
         cluster_len = [len(c1), len(c2)]
         cidx = cluster_len.index(max( cluster_len ))
@@ -153,7 +148,7 @@ def length_genotyper(hallele_counter, global_loci_info, global_loci_variations, 
             lower,upper = confidence_interval(mal)
             allele_range = f'{lower}-{upper}'
             ALT, allele_length, decomp_seq, repeativity = alt_sequence(read_seqs, mac, amplicon, motif_size)
-            meth_info = methylation_calc(mac, global_loci_variations, locus_key)
+            meth_info = methylation_calc(mac, global_loci_variations, locus_key, ALT)
             if repeativity:
                 vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, allele_length, len(mac), len(read_indices), out, ALT, log_bool, 'kmeans', decomp, hallele_counter, True, allele_range, decomp_seq, meth_info)
             else:
@@ -233,7 +228,6 @@ def analyse_genotype(contig, locus_key, global_loci_info,
                                                     (locus_start - snpD < x < locus_end + snpD),
                             snp_positions)))
 
-
     snp_allelereads = {}
     read_indices = set(read_indices)
     non_ref_snp_cov = {}
@@ -268,8 +262,7 @@ def analyse_genotype(contig, locus_key, global_loci_info,
 
     ordered_snp_on_cov = sorted(snp_allelereads.keys(), key = lambda item : non_ref_snp_cov[item], reverse = True)
 
-
-    haplotypes, min_snp, skip_point, chosen_snpQ, phased_read, snp_num = haplocluster_reads(snp_allelereads, ordered_snp_on_cov, read_indices, snpQ, snpC, snpR, phasingR) # SNP ifo and supporting reads for specific locus are given to the phasing function
+    haplotypes, min_snp, skip_point, chosen_snpQ, phased_read, snp_num = haplocluster_reads(snp_allelereads, ordered_snp_on_cov, read_indices, snpC, snpR, phasingR) # SNP ifo and supporting reads for specific locus are given to the phasing function
 
     if haplotypes == (): # if the loci has no significant snps
         state, skip_point = length_genotyper(hallele_counter, global_loci_info, global_loci_variations, locus_key, read_indices, contig, locus_start, locus_end, ref, out, male, log_bool, decomp, read_seqs, False)
@@ -277,13 +270,14 @@ def analyse_genotype(contig, locus_key, global_loci_info,
         return [state, skip_point]
     
     if min_snp != -1:
-        min_idx = sorted_global_snp_list.index(min_snp)
+        snp_left_boundary = locus_start - snpD
+        min_idx = 0
+        for each_spos in sorted_global_snp_list:
+            if each_spos >= snp_left_boundary:
+                break
+            del global_snp_positions[each_spos]
+            min_idx += 1
         del sorted_global_snp_list[:min_idx]
-        del_snps = set()
-        for pos in global_snp_positions:
-            if pos < min_snp: del_snps.add(pos)
-        for pos in del_snps:
-            del global_snp_positions[pos]
 
 
     genotypes = []
@@ -301,7 +295,7 @@ def analyse_genotype(contig, locus_key, global_loci_info,
         else:
             allele_count[str(allele_length)] = len(hap_reads)
 
-        meth_info.append(methylation_calc(hap_reads, global_loci_variations, locus_key))
+        meth_info.append(methylation_calc(hap_reads, global_loci_variations, locus_key, ALT))
 
     del read_seqs
     lower1,upper1 = confidence_interval(alen_list[0])

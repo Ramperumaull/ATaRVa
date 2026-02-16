@@ -1,6 +1,5 @@
 from ATARVA.realignment_utils import *
-import sys, bisect
-# import statistics
+import bisect
 
 def count_alleles(locus_key, read_indices, global_loci_variations, allele_counter, hallele_counter,alen_list):
     """
@@ -25,7 +24,7 @@ def record_snps(read_indices, old_reads, new_reads, global_read_variations, glob
     prev_locus_end += snp_dist
 
     for rindex in read_indices:
-        # if rindex not in new_reads: continue
+        if rindex not in new_reads: continue 
 
         read_variation = global_read_variations[rindex]
         rstart = read_variation['s']
@@ -33,9 +32,7 @@ def record_snps(read_indices, old_reads, new_reads, global_read_variations, glob
         snps   = read_variation['snps']
         dels   = read_variation['dels']
 
-            
         for pos in sorted_global_snp_list:
-            if pos < prev_locus_end: continue
             if not (snp_start <= pos <= snp_end): continue
             if pos < rstart: continue
             if pos > rend: break
@@ -68,7 +65,7 @@ def subset_hiQ_reads(global_read_variations, maxR, read_indices, read_tag):
     return read_indices, read_tag
 
 
-def process_locus(locus_key, global_loci_variations, global_read_variations, global_snp_positions, prev_reads, sorted_global_snp_list, maxR, minR, global_loci_info, near_by_loci, sorted_global_ins_rpos_set, Chrom, locus_start, locus_end, ref, log_bool, logger, snp_dist, prev_locus_end, hp_code, amplicon):
+def process_locus(locus_key, global_loci_variations, global_read_variations, global_snp_positions, prev_reads, sorted_global_snp_list, maxR, minR, global_loci_info, near_by_loci, sorted_global_ins_rpos_set, Chrom, locus_start, locus_end, ref, log_bool, logger, snp_dist, prev_locus_end, hp_code, amplicon, meth_cutoff):
 
 
     ref_seq = ref.fetch(Chrom, locus_start, locus_end)
@@ -94,7 +91,6 @@ def process_locus(locus_key, global_loci_variations, global_read_variations, glo
         return [prev_reads, category, homozygous_allele, reads_of_homozygous, {}, 0, haplotypes, []]
     elif total_reads > maxR:
         read_indices, read_tag = subset_hiQ_reads(global_read_variations, maxR, read_indices, read_tag)
-
     
     current_reads = set(read_indices)
     old_reads = prev_reads - current_reads
@@ -145,7 +141,6 @@ def process_locus(locus_key, global_loci_variations, global_read_variations, glo
                 elif (align.count('|') >= round(0.75*align_len)) and (pos[1]>=round(0.7*que_len)) and (align_len>=round(0.45*que_len)):
                     if align_len<=0.5*que_len: PI+=1
                     else: CI+=1
-                    # print('either CI or PI')
                     new_start = each_tuple[0] + pos[0]
                     for ins in sorted_left_rpos[lid:]:
                         new_ins_rpos_current_loci.add(ins)
@@ -187,8 +182,9 @@ def process_locus(locus_key, global_loci_variations, global_read_variations, glo
 
 
         # Extracting the methylation probability for each read at the locus
-        adj_start = read_repeat_start + ( new_start - rep_range[0] ) # adjusting the start position with respect to original read coordinates by adding the diff(after local-alignment)
-        adj_end = read_repeat_end + ( new_end - rep_range[1] ) # adjusting the start position with respect to original read coordinates by adding the diff(after local-alignment)
+        subseq_len = read_repeat_end - read_repeat_start
+        adj_start = read_repeat_start + new_start #( new_start - rep_range[0] ) # adjusting the start position with respect to original read coordinates by adding the diff(after local-alignment)
+        adj_end = read_repeat_end - (subseq_len - new_end) # adjusting the start position with respect to original read coordinates by adding the diff(after local-alignment)
 
         read_mod_bases = global_read_variations[each_read]['meth'] # modified_bases data
         locus_read_meth = global_loci_variations[locus_key]['read_meth'] # read_wise methylation data at the locus
@@ -196,16 +192,33 @@ def process_locus(locus_key, global_loci_variations, global_read_variations, glo
         # calculating average methylation probability at the locus for each read
         meth_count = 0
         meth_qual = 0
+        meth_pos = []
+        meth_encode = []
+        upper_bound = meth_cutoff
+        lower_bound = 1 - meth_cutoff
         for each_pos in read_mod_bases:
             if adj_start <= each_pos[0] <= adj_end:
+                repeat_base_pos = each_pos[0] - adj_start # position of the CG wrt the repeat start
+                current_prob = each_pos[1]/255
+                if lower_bound < current_prob < upper_bound: # skip the MM if it is within the lower and upper bound; only store the extremies
+                    meth_pos.append(repeat_base_pos)
+                    meth_encode.append(-1) # to indicate skipped positions
+                    continue
+
                 meth_count += 1
-                meth_qual += each_pos[1]/255
+                if current_prob >= meth_cutoff:
+                    meth_pos.append(repeat_base_pos)
+                    meth_encode.append(1) # encoding the probability as binary
+                    meth_qual += 1
+                else:
+                    meth_pos.append(repeat_base_pos)
+                    meth_encode.append(0) # encoding the probability as binary
+            
         if meth_count > 0:
             avg_qual = meth_qual/meth_count
-            locus_read_meth[each_read] = round(avg_qual, 2)
+            locus_read_meth[each_read] = (round(avg_qual, 2), meth_encode, meth_pos) # storing meth level, position meth prob encoding and meth occurrence positions
         else:
-            locus_read_meth[each_read] = None
-                
+            locus_read_meth[each_read] = None                
 
     if log_bool: logger.debug(f"{locus_key};Larger_ins={ILR};Partial_ins={PI};Complete_ins={CI}")
     sorted_global_ins_rpos_set |= new_ins_rpos_current_loci
@@ -236,9 +249,6 @@ def process_locus(locus_key, global_loci_variations, global_read_variations, glo
                 # reads_of_homozygous = [rindex for rindex in global_loci_variations[locus_key]['read_allele'] if homozygous_allele == global_loci_variations[locus_key]['read_allele'][rindex][0]]
             else:
                 category = 2 # ambiguous
-
-        # record_snps(read_indices, old_reads, new_reads, global_read_variations, global_snp_positions, sorted_global_snp_list, locus_start, locus_end, snp_dist, prev_locus_end)
-
     else:
         category = 2 # ambiguous
     

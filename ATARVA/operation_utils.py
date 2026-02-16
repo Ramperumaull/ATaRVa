@@ -329,31 +329,6 @@ def insertion_jump(insertion_length, insert, rpos, repeat_index, loci_keys, trac
 
     return jump
 
-# def Record_right_out_ins(amp_right_flank_list, r, repeat_index, locus_qpos_range, out_insertion_qpos_ranges_right, qpos, right_ins_rpos, coord_end, seq_len):
-#     needed_len = amp_right_flank_list[r+repeat_index]
-#     if needed_len>0:
-#         locus_qpos_range[r+repeat_index][1] += needed_len
-#         # soft_ins_len = needed_len
-#         if qpos < seq_len:
-#             out_insertion_qpos_ranges_right[r+repeat_index].append((qpos, qpos + needed_len))
-#             right_ins_rpos[r+repeat_index].append(coord_end+1)
-
-# def Record_left_out_ins(amp_left_flank_list, r, repeat_index, locus_qpos_range, out_insertion_qpos_ranges_left, left_ins_rpos, coord_start):
-#     needed_len = amp_left_flank_list[r+repeat_index]
-#     if needed_len>0:
-#         mod_flank = locus_qpos_range[r+repeat_index][0] - needed_len
-#         if mod_flank>0:
-#             locus_qpos_range[r+repeat_index][0] = mod_flank
-#             soft_ins_len = needed_len
-#         else:
-#             locus_qpos_range[r+repeat_index][0] = 0
-#             soft_ins_len = needed_len + mod_flank
-
-#         current_qpos = locus_qpos_range[r+repeat_index][0]
-#         if current_qpos != (current_qpos + soft_ins_len):
-#             out_insertion_qpos_ranges_left[r+repeat_index].append((current_qpos, current_qpos + soft_ins_len))
-#             left_ins_rpos[r+repeat_index].append(coord_start - 1)
-
 def ref_repeat(locus_key):
     lstart = int(locus_key[locus_key.index(':')+1 : locus_key.index('-')])
     lend = int(locus_key[locus_key.index('-')+1:])

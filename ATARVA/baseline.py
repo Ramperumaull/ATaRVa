@@ -14,8 +14,7 @@ import numpy as np
 import numpy as np
 import logging
 
-def locus_processor(global_loci_keys, global_loci_ends, global_loci_variations, global_read_variations, global_snp_positions, prev_reads, sorted_global_snp_list, maxR, minR, ref, Chrom, global_loci_info, out, snpQ, snpC, snpD, snpR, phasingR, tbx, flank, sorted_global_ins_rpos_set, log_bool, logger, male, prev_locus_end, decomp, hp_code, amplicon, somatic):
-
+def locus_processor(global_loci_keys, global_loci_ends, global_loci_variations, global_read_variations, global_snp_positions, prev_reads, sorted_global_snp_list, maxR, minR, ref, Chrom, global_loci_info, out, snpQ, snpC, snpD, snpR, phasingR, tbx, flank, sorted_global_ins_rpos_set, log_bool, logger, male, prev_locus_end, decomp, hp_code, amplicon, somatic, meth_cutoff):
     genotyped_loci = 0
     popped    = global_loci_ends.pop(0)
     locus_key = global_loci_keys.pop(0)
@@ -32,8 +31,7 @@ def locus_processor(global_loci_keys, global_loci_ends, global_loci_variations, 
         if not sorted_global_snp_list:
             sorted_global_snp_list = sorted(global_snp_positions.keys())
         
-
-        prev_reads, category, homozygous_allele, reads_of_homozygous, hallele_counter, skip_point, haplotypes, homo_alen_list = process_locus(locus_key, global_loci_variations, global_read_variations, global_snp_positions, prev_reads, sorted_global_snp_list, maxR, minR, global_loci_info, near_by_loci, sorted_global_ins_rpos_set, Chrom, lstart, lend, ref, log_bool, logger, snpD, prev_locus_end, hp_code, amplicon)
+        prev_reads, category, homozygous_allele, reads_of_homozygous, hallele_counter, skip_point, haplotypes, homo_alen_list = process_locus(locus_key, global_loci_variations, global_read_variations, global_snp_positions, prev_reads, sorted_global_snp_list, maxR, minR, global_loci_info, near_by_loci, sorted_global_ins_rpos_set, Chrom, lstart, lend, ref, log_bool, logger, snpD, prev_locus_end, hp_code, amplicon, meth_cutoff)
 
         read_seqs = global_loci_variations[locus_key]['read_sequence']
         if category == 1:
@@ -51,7 +49,12 @@ def locus_processor(global_loci_keys, global_loci_ends, global_loci_variations, 
                 ALT = '.'
 
             lower,upper = confidence_interval(homo_alen_list)
-            meth_info = methylation_calc(reads_of_homozygous, global_loci_variations, locus_key)
+
+            if ALT != '.':
+                meth_info = methylation_calc(reads_of_homozygous, global_loci_variations, locus_key, ALT)
+            else:
+                meth_info = methylation_calc(reads_of_homozygous, global_loci_variations, locus_key, ref.fetch(Chrom, lstart, lend))
+
             if male:
                 allele_range = f'{lower}-{upper}'
             else:
@@ -217,7 +220,7 @@ def cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshold, ou
 
             while global_loci_ends and read_start > global_loci_ends[0]:
 
-                genotype_status = locus_processor(global_loci_keys, global_loci_ends, global_loci_variations, global_read_variations, global_snp_positions, prev_reads, sorted_global_snp_list, maxR, minR, ref, Chrom, global_loci_info, out, snpQ, snpC, snpD, snpR, phasingR, tbx, flank, sorted_global_ins_rpos_set, log_bool, logger, male, prev_locus_end, decomp, hp_code, amplicon, somatic)
+                genotype_status = locus_processor(global_loci_keys, global_loci_ends, global_loci_variations, global_read_variations, global_snp_positions, prev_reads, sorted_global_snp_list, maxR, minR, ref, Chrom, global_loci_info, out, snpQ, snpC, snpD, snpR, phasingR, tbx, flank, sorted_global_ins_rpos_set, log_bool, logger, male, prev_locus_end, decomp, hp_code, amplicon, somatic, meth_cutoff)
                 genotyped_loci_count += genotype_status[0]
                 prev_locus_end = genotype_status[1]
                 progress_bar.update(1)
@@ -260,7 +263,7 @@ def cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshold, ou
             # if the read is beyond the last locus in the bed file the loop stops
             if read_start > end_coord:
                 while global_loci_ends:
-                    genotype_status = locus_processor(global_loci_keys, global_loci_ends, global_loci_variations, global_read_variations, global_snp_positions, prev_reads, sorted_global_snp_list, maxR, minR, ref, Chrom, global_loci_info, out, snpQ, snpC, snpD, snpR, phasingR, tbx, flank, sorted_global_ins_rpos_set, log_bool, logger, male, prev_locus_end, decomp, hp_code, amplicon, somatic)
+                    genotype_status = locus_processor(global_loci_keys, global_loci_ends, global_loci_variations, global_read_variations, global_snp_positions, prev_reads, sorted_global_snp_list, maxR, minR, ref, Chrom, global_loci_info, out, snpQ, snpC, snpD, snpR, phasingR, tbx, flank, sorted_global_ins_rpos_set, log_bool, logger, male, prev_locus_end, decomp, hp_code, amplicon, somatic, meth_cutoff)
                     genotyped_loci_count += genotype_status[0]
                     prev_locus_end = genotype_status[1]
                     progress_bar.update(1)
@@ -276,6 +279,7 @@ def cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshold, ou
             loci_coords = []; loci_keys = []
             left_flank_list = []; right_flank_list = []
             amp_left_flank_list = []; amp_right_flank_list = []
+            same_read_loci = [] # Loci covered by the same read
 
             for row in tbx.fetch(read_chrom, read_start, read_end):
                 
@@ -284,6 +288,8 @@ def cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshold, ou
 
                 row = row.split('\t')
                 locus_start = int(row[1]);  locus_end = int(row[2]); locus_len = locus_end-locus_start
+
+                same_read_loci.append((locus_start, locus_end))
 
                 if (locus_start>=Start[0]) and (locus_end<=End[1]):
                     if locus_start==Start[0]:
@@ -408,7 +414,7 @@ def cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshold, ou
                     init_amp_var.append(ref) # add ref object only if its amplicon mode
                 else:
                     init_amp_var.append(0)
-                meth_start, meth_end = parse_cstag(read_index, cs_tag, read_start, loci_keys, loci_coords, read_loci_variations, homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read_quality, cigar_one, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, init_amp_var, loci_coords)
+                meth_start, meth_end = parse_cstag(read_index, cs_tag, read_start, loci_keys, loci_coords, read_loci_variations, homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read_quality, cigar_one, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, init_amp_var, same_read_loci, snpQ)
                 read_modified_bases = list(read.modified_bases.items()) if read.modified_bases is not None else []
                 if len(read_modified_bases)>0:
                     for mods in read_modified_bases:
@@ -422,7 +428,7 @@ def cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshold, ou
                 del read_quality
             else :
                 meth_start, meth_end = parse_cigar_tag(read_index, cigar_tuples, read_start, loci_keys, loci_coords, read_loci_variations,
-                                homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read, ref, read_quality, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, init_amp_var, loci_coords)
+                                homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read, ref, read_quality, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, init_amp_var, same_read_loci, snpQ)
                 read_modified_bases = list(read.modified_bases.items()) if read.modified_bases is not None else []
                 if len(read_modified_bases)>0:
                     for mods in read_modified_bases:
@@ -447,7 +453,7 @@ def cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshold, ou
                 global_loci_variations[locus_key]['read_tag'].append(hp_tag)
 
         while global_loci_ends:
-            genotype_status = locus_processor(global_loci_keys, global_loci_ends, global_loci_variations, global_read_variations, global_snp_positions, prev_reads, sorted_global_snp_list, maxR, minR, ref, Chrom, global_loci_info, out, snpQ, snpC, snpD, snpR, phasingR, tbx, flank, sorted_global_ins_rpos_set, log_bool, logger, male, prev_locus_end, decomp, hp_code, amplicon, somatic)
+            genotype_status = locus_processor(global_loci_keys, global_loci_ends, global_loci_variations, global_read_variations, global_snp_positions, prev_reads, sorted_global_snp_list, maxR, minR, ref, Chrom, global_loci_info, out, snpQ, snpC, snpD, snpR, phasingR, tbx, flank, sorted_global_ins_rpos_set, log_bool, logger, male, prev_locus_end, decomp, hp_code, amplicon, somatic, meth_cutoff)
             genotyped_loci_count += genotype_status[0]
             prev_locus_end = genotype_status[1]
             progress_bar.update(1)
@@ -715,7 +721,7 @@ def mini_cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshol
                         init_amp_var.append(ref) # add ref object only if its amplicon mode
                     else:
                         init_amp_var.append(0)
-                    meth_start, meth_end = parse_cstag(read_index, cs_tag, read_start, loci_keys, loci_coords, read_loci_variations, homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read_quality, cigar_one, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, init_amp_var, same_read_loci)
+                    meth_start, meth_end = parse_cstag(read_index, cs_tag, read_start, loci_keys, loci_coords, read_loci_variations, homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read_quality, cigar_one, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, init_amp_var, same_read_loci, snpQ)
                     read_modified_bases = list(read.modified_bases.items()) if read.modified_bases is not None else []
                     if len(read_modified_bases)>0:
                         for mods in read_modified_bases:
@@ -729,7 +735,7 @@ def mini_cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshol
                     del read_quality
                 else :
                     meth_start, meth_end = parse_cigar_tag(read_index, cigar_tuples, read_start, loci_keys, loci_coords, read_loci_variations,
-                                homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read, ref, read_quality, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, init_amp_var, same_read_loci)
+                                homopoly_positions, global_read_variations, global_snp_positions, read_sequence, read, ref, read_quality, sorted_global_snp_list, left_flank_list, right_flank_list, male, hp, init_amp_var, same_read_loci, snpQ)
                     read_modified_bases = list(read.modified_bases.items()) if read.modified_bases is not None else []
                     if len(read_modified_bases)>0:
                         for mods in read_modified_bases:
@@ -755,7 +761,7 @@ def mini_cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshol
             
             while global_loci_ends:
 
-                genotype_status = locus_processor(global_loci_keys, global_loci_ends, global_loci_variations, global_read_variations, global_snp_positions, prev_reads, sorted_global_snp_list, maxR, minR, ref, Chrom, global_loci_info, out, snpQ, snpC, snpD, snpR, phasingR, tbx2, flank, sorted_global_ins_rpos_set, log_bool, logger, male, prev_locus_end, decomp, hp_code, amplicon, somatic)
+                genotype_status = locus_processor(global_loci_keys, global_loci_ends, global_loci_variations, global_read_variations, global_snp_positions, prev_reads, sorted_global_snp_list, maxR, minR, ref, Chrom, global_loci_info, out, snpQ, snpC, snpD, snpR, phasingR, tbx2, flank, sorted_global_ins_rpos_set, log_bool, logger, male, prev_locus_end, decomp, hp_code, amplicon, somatic, meth_cutoff)
                 genotyped_loci_count += genotype_status[0]
                 prev_locus_end = 0
                 progress_bar.update(1)

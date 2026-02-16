@@ -1,6 +1,6 @@
 import bisect
 
-def update_global_snpPos(ref_start, pos, global_read_variations, global_snp_positions, read_index, read_sequence, read_quality, sorted_global_snp_list, insertion_point, qpos, loci_coords, male, hp, amplicon_variables):
+def update_global_snpPos(ref_start, pos, global_read_variations, global_snp_positions, read_index, read_sequence, read_quality, sorted_global_snp_list, insertion_point, qpos, loci_coords, male, hp, amplicon_variables, snpQ):
 
     rpos = ref_start+pos
     for ins in insertion_point:
@@ -13,9 +13,9 @@ def update_global_snpPos(ref_start, pos, global_read_variations, global_snp_posi
         if each_coord[0] <= rpos <= each_coord[1]:
             outside_loci = False
             break
-
-    if (not male) and outside_loci and (not hp) and (amplicon_variables==[]):
-        Q_value = read_quality[qpos]
+    
+    Q_value = read_quality[qpos]
+    if (Q_value >= snpQ) and (not male) and outside_loci and (not hp) and (amplicon_variables==[]):
         sub_char = read_sequence[qpos]
         global_read_variations[read_index]['snps'].add(rpos)
         if rpos not in global_snp_positions:
@@ -31,7 +31,7 @@ def update_global_snpPos(ref_start, pos, global_read_variations, global_snp_posi
 
 
 
-def parse_mdtag(MD_tag, qpos, ref_start, global_read_variations, global_snp_positions, read_index, read_quality, read_sequence, sorted_global_snp_list, insertion_point, loci_coords, male, hp, amplicon_variables):
+def parse_mdtag(MD_tag, qpos, ref_start, global_read_variations, global_snp_positions, read_index, read_quality, read_sequence, sorted_global_snp_list, insertion_point, loci_coords, male, hp, amplicon_variables, snpQ):
         
     if sorted_global_snp_list == None:
         sorted_global_snp_list = []
@@ -56,7 +56,7 @@ def parse_mdtag(MD_tag, qpos, ref_start, global_read_variations, global_snp_posi
         if i.isnumeric():
             sub_base+=i
             if sub_char != '':
-                update_global_snpPos(ref_start, pos, global_read_variations, global_snp_positions, read_index, read_sequence, read_quality, sorted_global_snp_list, insertion_point, qpos, loci_coords, male, hp, amplicon_variables)
+                update_global_snpPos(ref_start, pos, global_read_variations, global_snp_positions, read_index, read_sequence, read_quality, sorted_global_snp_list, insertion_point, qpos, loci_coords, male, hp, amplicon_variables, snpQ)
                 replacing = False
                 qpos+=1
                 sub_char = ''
@@ -70,7 +70,7 @@ def parse_mdtag(MD_tag, qpos, ref_start, global_read_variations, global_snp_posi
                 qpos+=int(sub_base)
             else:
                 base+=1
-                update_global_snpPos(ref_start, pos, global_read_variations, global_snp_positions, read_index, read_sequence, read_quality, sorted_global_snp_list, insertion_point, qpos, loci_coords, male, hp, amplicon_variables)
+                update_global_snpPos(ref_start, pos, global_read_variations, global_snp_positions, read_index, read_sequence, read_quality, sorted_global_snp_list, insertion_point, qpos, loci_coords, male, hp, amplicon_variables, snpQ)
                 pos = base - 1
                 qpos+=1
                 sub_char = ''
@@ -84,7 +84,7 @@ def parse_mdtag(MD_tag, qpos, ref_start, global_read_variations, global_snp_posi
 
             if replacing:
                 if sub_char != '':
-                    update_global_snpPos(ref_start, pos, global_read_variations, global_snp_positions, read_index, read_sequence, read_quality, sorted_global_snp_list, insertion_point, qpos, loci_coords, male, hp, amplicon_variables)
+                    update_global_snpPos(ref_start, pos, global_read_variations, global_snp_positions, read_index, read_sequence, read_quality, sorted_global_snp_list, insertion_point, qpos, loci_coords, male, hp, amplicon_variables, snpQ)
                     replacing = False
                     qpos+=1
                     sub_char = ''
@@ -95,4 +95,4 @@ def parse_mdtag(MD_tag, qpos, ref_start, global_read_variations, global_snp_posi
 
                 
     if sub_char != '':
-        update_global_snpPos(ref_start, pos, global_read_variations, global_snp_positions, read_index, read_sequence, read_quality, sorted_global_snp_list, insertion_point, qpos, loci_coords, male, hp, amplicon_variables)
+        update_global_snpPos(ref_start, pos, global_read_variations, global_snp_positions, read_index, read_sequence, read_quality, sorted_global_snp_list, insertion_point, qpos, loci_coords, male, hp, amplicon_variables, snpQ)

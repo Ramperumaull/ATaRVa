@@ -143,9 +143,6 @@ def get_most_frequent_motif(sequence, motif_size, motif):
     secondary_motif = most_common[1] if len(most_common) > 1 else None
 
     return primary_motif, secondary_motif
-    
-#def get_canonical_motif(motif):
-    #return min(motif[i:] + motif[:i] for i in range(len(motif)))
 
 def max_match(shift_list, gap_regions, motif_size):
     gap_wise_shift = []
@@ -279,7 +276,10 @@ def shift_decomp(seq, motif_size, motif, boundary, state):
         if positions[i] == positions[i - 1] + len(primary_motif):
             count += 1
         else:
-            decomposed_parts.append(f"({primary_motif}){count}")
+            if count > 1:
+                decomposed_parts.append(f"({primary_motif}){count}")
+            else:
+                decomposed_parts.append(primary_motif)
             interspersed = seq[positions[i - 1] + len(primary_motif):positions[i]]
             if interspersed:
                 primary_motif, secondary_motif = get_most_frequent_motif(seq, motif_size, '')
@@ -288,7 +288,11 @@ def shift_decomp(seq, motif_size, motif, boundary, state):
                     decomposed_parts.extend(secondary_decomp)
 
             count = 1
-    decomposed_parts.append(f"({primary_motif}){count}")
+            
+    if count > 1:
+        decomposed_parts.append(f"({primary_motif}){count}")
+    else:
+        decomposed_parts.append(primary_motif)
     last_motif_end = positions[-1] + len(primary_motif)
     leftover_sequence = seq[last_motif_end:]
     if leftover_sequence:
@@ -512,13 +516,23 @@ def refine_decomposition(fseq, motif_size, seq_len):
             else:
                 new_seq_list.append(i)
                 non_repeat += len(i)
+
     
     dlen = len(new_seq_list) - 1
     loc = 0
+    tmp_loc = 1 # different value then 'loc' to start the loop
     refined_list = []
     
     while loc < dlen:
-        current = new_seq_list[loc]
+        if tmp_loc != loc:
+            current = new_seq_list[loc]
+        else:
+            loc += 1
+            if (loc == dlen) and current:
+                refined_list.append(current)
+                loc += 1
+                break
+        tmp_loc = loc
         next_item = new_seq_list[loc+1]
 
         current_state = 1 if '(' in current and ')' in current else 0
@@ -542,20 +556,31 @@ def refine_decomposition(fseq, motif_size, seq_len):
                 refined_list.append(current)
                 loc += 1
                 
-        elif current_state == 1 and next_state == 0:  
+        elif current_state == 1 and next_state == 0:
             try:
                 e1 = current.index(')')
                 tmp1 = current[1:e1]
                 
                 if len(next_item) >= len(tmp1) and tmp1 == next_item[0:len(tmp1)]:
                     combined_count = int(current[e1+1:]) + 1
+                    remaining = next_item[len(tmp1):]
+
+                    while tmp1 == remaining[0:len(tmp1)]:
+                        combined_count += 1 
+                        remaining = remaining[len(tmp1):]
+                        if (len(remaining)==1) and tmp1 == remaining:
+                            combined_count += 1
+                            remaining = ''
+                            break
+                    
                     refined_list.append(f'({tmp1}){combined_count}')
                     
-                    remaining = next_item[len(tmp1):]
                     if remaining:
-                        refined_list.append(remaining)
-                    
-                    loc += 2
+                        current = remaining
+                        loc += 1
+                    else:
+                        loc += 2
+                        
                 elif tmp1 == next_item:  
                     combined_count = int(current[e1+1:]) + 1
                     refined_list.append(f'({tmp1}){combined_count}')
@@ -563,11 +588,12 @@ def refine_decomposition(fseq, motif_size, seq_len):
                 else:
                     refined_list.append(current)
                     loc += 1
+                    
             except (ValueError, IndexError):
                 refined_list.append(current)
                 loc += 1
                 
-        elif current_state == 0 and next_state == 1:  
+        elif current_state == 0 and next_state == 1:
             try:
                 e2 = next_item.index(')')
                 tmp2 = next_item[1:e2]
@@ -592,9 +618,9 @@ def refine_decomposition(fseq, motif_size, seq_len):
                 refined_list.append(current)
                 loc += 1
                 
-        else:  
-            refined_list.append(current + next_item)
-            loc += 2
+        else:
+            current = current + next_item
+
     
     if loc == dlen:
         refined_list.append(new_seq_list[loc])
@@ -635,6 +661,6 @@ def refine_decomposition(fseq, motif_size, seq_len):
         else:
             non_repeat_len += len(elem)
     
-    non_rep_percent = round((non_repeat_len / seq_len) * 100, 2) if seq_len > 0 else 0
+    non_rep_percent = round((non_repeat_len / seq_len), 2) if seq_len > 0 else 0
     
     return final_merged, non_rep_percent
