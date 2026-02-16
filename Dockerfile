@@ -2,7 +2,7 @@
 # Dockerfile
 #
 # Software:         ATaRVa
-# Software Version: 0.4.1
+# Software Version: 0.6.0
 # Description:      ATaRVa image
 # Summary:          ATaRVa is a tandem repeat genotyper, specially designed for long read data.
 # Website:          https://github.com/SowpatiLab/ATaRVa

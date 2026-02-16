@@ -72,8 +72,14 @@ def mm_tag_extract(pos_qual, meth_start, meth_end, read_sequence, meth_cutoff, f
                 if (meth_pos+1 <= last_index) and (read_sequence[meth_chunk_start : meth_chunk_end]=='CG'):
                     read_meth_range.append(each_pos)
     return read_meth_range
+
+def cg_pos(seq):
+    start_positions = [m.start() for m in re.finditer("CG", seq, overlapped=False)]
+    return start_positions
             
 def methylation_calc(hap_reads, global_loci_variations, locus_key, ALT_seq):
+    if cg_pos(ALT_seq) == []:
+        return [None, None, None]
     meth_reads = 0
     hap_meth = 0
     encrypted_meth = None
@@ -191,7 +197,7 @@ def pos_align(cons_pos, cons_diff, read_pos):
 
 def methylation_encoding(matrix, pos_matrix, ALT_seq):
     encryted_meth = ''
-    cons_pos = [m.start() for m in re.finditer("CG", ALT_seq, overlapped=False)] # getting the pos of CGs in the ALT sequence
+    cons_pos = cg_pos(ALT_seq) # getting the pos of CGs in the ALT sequence
     cons_diff = pos_diffs(cons_pos)
     # Extracting only those positions which are within 2bp of true CG positions
     new_pos_matrix = []
@@ -208,7 +214,7 @@ def methylation_encoding(matrix, pos_matrix, ALT_seq):
         col_array = np.array(col)
         mode = statistics.mode(col_array)
         if mode == -2:
-            pass # skipping the positions where there is error call in few reads
+            encryted_meth += '*' # adding * for skipping the positions where there is error call in few reads
         elif mode == -1:
             encryted_meth += '-' #adding - for ambiguous calls
         else:

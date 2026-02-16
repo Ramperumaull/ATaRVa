@@ -22,7 +22,7 @@ Optional arguments:
   --snp-count <INT>     number of SNPs to be considered for phasing (minimum value = 1).
                         [default: 3]
   --snp-qual <INT>      minimum basecall quality at the SNP position to be considered for
-                        phasing. [default: 13]
+                        phasing. [default: 20]
   --flank <INT>         length of the flanking region (in base pairs) to search for insertion
                         with a repeat in it. [default: 10]
   --snp-read <FLOAT>    a positive float as the minimum fraction of snp's read contribution to
@@ -39,6 +39,8 @@ Optional arguments:
                         number of threads. [default: 1]
   --haplotag <STR>      use haplotagged information for phasing. eg: [HP]. [default: None]
   --decompose           write the motif-decomposed sequence to the vcf. [default: False]
+  --methviz             write the methylation encoded sequence to the vcf for visualization
+                        purpose. [default: False]
   --amplicon            genotype mode for targeted-sequenced samples.
                         In this mode, the default values for `max-reads` and `flank` values are 1000 and 20 respectively [default: False]
   --read-wise           Read-wise genotyping mode for BED file with dense regions. [default: False]
@@ -127,6 +129,9 @@ Specify the haplotype tag to utilize phased information for genotyping. eg `HP`
 Performs motif-decomposition on ALT sequences.<br>
 **NOTE: Only applicable for motif length <= 10**
 
+#### `--methviz`
+Calculates site-level methylation levels for CG bases(5mC) within the repeat region and writes them as a base64-encoded MV tag in the VCF SAMPLE column.
+
 #### `--amplicon`
 Genotyping mode for targeted sequencing data. In this mode, the default values for `max-reads` and `flank` values are 1000 and 20 respectively.
 
@@ -169,7 +174,7 @@ $ atarva -f ref.fa --bam input.bam -r regions.bed.gz --amplicon
 ### Stringent parameter usage
 To run ATaRVa with stringent parameters, use the following command:
 ```bash
-$ atarva -q 20 --snp-count 5 --snp-qual 25 --min-reads 20 -t 32 -fi ref.fa --bam input.bam -r regions.bed.gz
+$ atarva -q 30 --snp-count 5 --snp-qual 25 --min-reads 20 -t 32 -fi ref.fa --bam input.bam -r regions.bed.gz
 # The above command with --snp-count 5 will use a maximum of five heterozygous SNPs to provide accurate genotypes, but only when phasing is based on SNPs and not on length.
 ```
 ### Genotyping TRs from specific chromosome/s
@@ -223,6 +228,7 @@ The `INFO` field describes the general structure of the repeat region and includ
 | START | Start position of the repeat region |
 | END | End position of the repeat region |
 | ID  | Tag fetched form the extra column in BED file |
+| REFCN | Reference allele copy number |
 
 #### FORMAT fields
 The `FORMAT` fields and their values are provided in the last two columns of the VCF file, containing information about each genotype call. These columns include the following fields:  
@@ -230,6 +236,7 @@ The `FORMAT` fields and their values are provided in the last two columns of the
 |-----------------|---------------------------------|
 | GT | Genotype of the sample |
 | AL | Length of the alleles in base pairs |
+| CN | Motif copy number for each allele |
 | AR | Central 95% range of allele lengths in each cluster |
 | SD | Number of supporting reads for each alleles |
 | DP | Number of the supporting reads for the repeat locus |

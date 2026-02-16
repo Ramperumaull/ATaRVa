@@ -1,5 +1,5 @@
 # ATaRVa - a tandem repeat genotyper
-![Badge-PyPI](https://img.shields.io/badge/PyPI-v0.5.0-brightgreen)
+![Badge-PyPI](https://img.shields.io/badge/PyPI-v0.6.0-brightgreen)
 ![Badge-License](https://img.shields.io/badge/License-MIT-blue)
 
 <p align=center>
@@ -10,7 +10,7 @@ ATaRVa (pronounced uh-thur-va, IPA: /əθərvə/, Sanskrit: अथर्व) is 
 
 
 ## Motivation
-Long-read sequencing propelled comprehensive analysis of tandem repeats (TRs) in genomes. Current long-read TR genotypers are either platform specific or computationally inefficient. ATaRva outperforms existing tools while running an order of magnitude faster. ATaRVa also supports multi-threading, haplotyping, and motif decomposition, making it an invaluable tool for population scale TR analyses.
+Long-read sequencing propelled comprehensive analysis of tandem repeats (TRs) in genomes. Current long-read TR genotypers are either platform specific or computationally inefficient. ATaRva outperforms existing tools while running an order of magnitude faster. ATaRVa also supports multi-threading, haplotyping, motif decomposition and methylation profiling, making it an invaluable tool for population scale TR analyses.
 
 ## Table of contents:
 
@@ -145,7 +145,7 @@ Optional arguments:
   --snp-count <INT>     number of SNPs to be considered for phasing (minimum value = 1).
                         [default: 3]
   --snp-qual <INT>      minimum basecall quality at the SNP position to be considered for
-                        phasing. [default: 13]
+                        phasing. [default: 20]
   --flank <INT>         length of the flanking region (in base pairs) to search for insertion
                         with a repeat in it. [default: 10]
   --snp-read <FLOAT>    a positive float as the minimum fraction of snp's read contribution to
@@ -162,6 +162,8 @@ Optional arguments:
                         number of threads. [default: 1]
   --haplotag <STR>      use haplotagged information for phasing. eg: [HP]. [default: None]
   --decompose           write the motif-decomposed sequence to the vcf. [default: False]
+  --methviz             write the methylation encoded sequence to the vcf for visualization
+                        purpose. [default: False]
   --amplicon            genotype mode for targeted-sequenced samples.
                         In this mode, the default values for `max-reads` and `flank` values are 1000 and 20 respectively [default: False]
   --read-wise           Read-wise genotyping mode for BED file with dense regions. [default: False]
@@ -302,13 +304,14 @@ For detailed information on advanced merging options, refer to the [Tamatr](./do
 
 ## Changelog
 ### v0.6.0
-* Fixed an incorrect code modification that caused `--amplicon` mode to produce incorrect results in previous versions
+* Fixed an incorrect code modification that caused `--amplicon` mode to produce incorrect results in previous version(V0.5.0)
 * Fixed bugs in `loci-wise` mode related to storing SNP info
 * Introduced subcommands to separate operating modes [`genotype` & `merge`]
 * Added `MV` tag in the VCF_SAMPLE column to report base-wise methylation level for visualization purpose
 * Changed the name of `MM` tag into `MA`
 * Improvised the mean methylation level calculation in `MA` tag
 * Increased the default `--snp-qual` from 13 to 20
+* Added `CN` and `REFCN` tags to the VCF to report motif copy number in the sample and INFO fields, respectively.
 
 ### v0.5.0
 * Changed the VCF-START column into 1-based coordinate system

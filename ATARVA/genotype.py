@@ -136,13 +136,8 @@ def genotype_run(args):
     # else: out_file = f'{".".join(args.bams.split(".")[:-1])}'
     external_name = out_file
 
-    # with gzip.open(args.regions, 'rt') as f:
-    #     first_row = f.readline().strip().split('\t')
-    #     if (first_row[0][0]=='#') & (len(first_row)>5):
-    #         info_opt_tag = first_row[5]
-    #     else:
-    #         info_opt_tag = 'ID'
-    # set_info_opt_tag(info_opt_tag)
+    set_info_mp_cutoff(args.meth_prob)
+
     set_methviz_tag(args.methviz)
 
     tbx  = pysam.Tabixfile(args.regions)
