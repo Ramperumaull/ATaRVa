@@ -87,7 +87,7 @@ Maximum number of SNPs to be used for read clustering and phasing.
 
 #### `--snp-qual`
 **Expects**: *INTEGER*<br>
-**Default**: *13*<br>
+**Default**: *20*<br>
 Minimum Q value of the SNPs to be used for phasing.
 
 #### `--flank`
