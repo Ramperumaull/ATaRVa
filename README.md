@@ -2,7 +2,6 @@
 ![Badge-PyPI](https://img.shields.io/badge/PyPI-v0.6.0-brightgreen)
 ![PyPI - Downloads](https://img.shields.io/pypi/dm/ATaRVa)
 ![Badge-License](https://img.shields.io/badge/License-MIT-blue)
-![PyPI - Version](https://img.shields.io/pypi/v/atarva)
 
 <p align=center>
   <img src="lib/atrv_logo.png" alt="Logo of ATaRVa" width="200"/>
