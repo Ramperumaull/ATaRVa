@@ -129,6 +129,7 @@ def process_locus(locus_key, global_loci_variations, global_read_variations, glo
                 align, pos = stripSW(Inputs(ref_seq, test_query), True)
                 que_len = len(test_query)
                 align_len = len(align)
+                if pos[0] == pos[1]: pos[1] = pos[0]+1 # to avoid the cases where the pos is same (incase of single monomer insertion)
 
                 if align_len<=round(0.2*min([que_len,ref_len])):
                     continue
@@ -159,6 +160,8 @@ def process_locus(locus_key, global_loci_variations, global_read_variations, glo
                 align, pos = stripSW(Inputs(ref_seq, test_query), True)
                 que_len = len(test_query)
                 align_len = len(align)
+                if pos[0] == pos[1]: pos[1] = pos[0]+1 # to avoid the cases where the pos is same (incase of single monomer insertion)
+                
                 if align_len<=round(0.2*min([que_len,ref_len])):
                     continue
                 elif (align_len >= round(0.75*ref_len)) and (align.count('|') >= round(0.75*align_len)): # when insertion is larger then the ref seq
@@ -226,8 +229,10 @@ def process_locus(locus_key, global_loci_variations, global_read_variations, glo
     allele_counter = {};  hallele_counter = {}; alen_list = []
     count_alleles(locus_key, read_indices, global_loci_variations, allele_counter, hallele_counter, alen_list)
 
+    record_snps(read_indices, old_reads, new_reads, global_read_variations, global_snp_positions, sorted_global_snp_list, locus_start, locus_end, snp_dist, prev_locus_end) # making this common for both WGS and AMPLICON
+
     if not amplicon:
-        record_snps(read_indices, old_reads, new_reads, global_read_variations, global_snp_positions, sorted_global_snp_list, locus_start, locus_end, snp_dist, prev_locus_end)
+        # record_snps(read_indices, old_reads, new_reads, global_read_variations, global_snp_positions, sorted_global_snp_list, locus_start, locus_end, snp_dist, prev_locus_end) # REMOVING this for WGS. Making it common for both, outside
 
         hap_status = False
         if hp_code:

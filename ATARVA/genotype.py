@@ -11,6 +11,9 @@ from ATARVA.baseline import *
 from ATARVA.sub_operation_utils import set_methviz_tag
 
 def genotype_parser(subparsers):
+    """
+    Parse command line arguments.
+    """
     parser = subparsers.add_parser("genotype", help="tandem repeat genotyper specially designed for long read data", description="Tandem Repeat Genotyper")
     parser._action_groups.pop()
 
@@ -41,6 +44,7 @@ def genotype_parser(subparsers):
     optional.add_argument('--decompose', action='store_true', help="write the motif-decomposed sequence to the vcf. [default: False]")
     optional.add_argument('--methviz', action='store_true', help="write the methylation encoded sequence to the vcf for visualization purpose. [default: False]")
     optional.add_argument('--amplicon', action='store_true', help="genotype mode for targeted-sequenced samples. In this mode, the default values for `max-reads` and `flank` values are 1000 and 20 respectively. [default: False]")
+    optional.add_argument('--somatic', action='store_true', help="genotype mode for capturing mosaicism in samples. In this mode, default `max-reads` and `flank` values are same as amplicon mode. [default: False]")
     optional.add_argument('--read-wise', action='store_true', help="Read-wise genotyping mode for BED file with dense regions. [default: False]")
     optional.add_argument('--loci-wise', action='store_true', help="Loci-wise genotyping mode instead of Read-wise for BED file with sparse regions. [default: False]")
     optional.add_argument('-log', '--debug_mode', action='store_true', help="write the debug messages to log file. [default: False]")
@@ -56,6 +60,17 @@ def genotype_parser(subparsers):
     parser.set_defaults(func=genotype_run)
 
 def f_check(path):
+    """
+    Check if the provided FASTA file is valid.
+    
+    Args:
+        path (str): Path to the FASTA file.
+    
+    Raises:
+        FileNotFoundError: If the file does not exist.
+        ValueError: If the file is not a valid FASTA file.
+        OSError: If there is an error reading the file.
+    """
     try:
         f = pysam.FastaFile(path)
         f.close()
@@ -67,6 +82,20 @@ def f_check(path):
         sys.exit()
 
 def b_check(path, aln_format):
+    """
+    Check if the provided BAM file is valid and sorted by coordinate.
+    
+    Args:
+        path (str): Path to the BAM file.
+        aln_format (str): Format of the alignment file.
+    
+    Raises:
+        FileNotFoundError: If the file does not exist.
+        SortOrderError: If the BAM file is not sorted by coordinate.
+        ValueError: If the file is not a valid BAM file.
+        OSError: If there is an error reading the file.
+    """
+
     try:
         b = pysam.AlignmentFile(path, aln_format)
         header = b.header
@@ -93,8 +122,37 @@ def b_check(path, aln_format):
         sys.exit()
 
 def t_check(path):
+    """
+    Check if the provided regions file is valid and indexed.
+    
+    Args:
+        path (str): Path to the regions file.
+        
+    Raises:
+        FileNotFoundError: If the file does not exist.
+        ValueError: If the file is not a valid tabix file.
+        OSError: If there is an error reading the file.
+    """
     try:
+        columns = ["Chrom", "Start", "End", "Motif", "Motif length"]
         t = pysam.TabixFile(path)
+        for rows in t.fetch():
+            rows = rows.strip().split('\t')
+            break
+        if len(rows) < 5:
+            print(f"Error: {path} should have at least 5 columns (chrom, start, end, motif, motif length)!!")
+            sys.exit()
+        else:
+            compt_list = [rows[0].isalnum(), rows[1].isdigit(), rows[2].isdigit(), rows[3].isalpha(), rows[4].isdigit()]
+            if not all(compt_list):
+                incorrect_cols = [columns[index] for index,i in enumerate(compt_list) if not i]
+                print(f"Error: The first 5 columns of {path} should be chrom, start, end, motif, motif length respectively!!")
+                print(f"Incorrect columns: {', '.join(incorrect_cols)}")
+                sys.exit()
+            elif (len(rows) > 5) and (not rows[5].isalnum()):
+                print(f"Error: The 6th column of {path} should be a alphanumeric string representing the optional annotation!!")
+                sys.exit()
+
         t.close()
     except (FileNotFoundError, ValueError, OSError) as e:
         print(f"Error: {path} is not a valid tabix file. {str(e)}")
@@ -159,7 +217,7 @@ def genotype_run(args):
 
     maxR = args.max_reads
     flank_length = args.flank
-    if args.amplicon:
+    if args.amplicon or args.somatic:
         if args.max_reads is None: maxR = 1000
         if args.flank is None: flank_length = 20
     else:
@@ -167,7 +225,9 @@ def genotype_run(args):
         if flank_length is None: flank_length = 10
 
     threads = args.threads
-    split_point = total_loci // threads
+    split_point = total_loci // threads # number of loci to be handled by each thread. the last thread will handle the remaining loci if total_loci is not perfectly divisible by threads
+    # split_point is 0 when the total_loci is less than the number of threads
+    # this is a rare case with a bed file with very few loci; all these loci will be handled by a single thread
     if split_point == 0:
         split_point = 1
         threads = 1
@@ -232,11 +292,17 @@ def genotype_run(args):
                 # sys.exit()
         aln_file.close()
 
-        amplicon = args.amplicon
+        amplicon = False
         somatic = False
         if args.amplicon:
+            amplicon = True
             srs = True
             print('Processing in amplicon mode...')
+        elif args.somatic:
+            srs = True
+            somatic = True
+            print('Processing in somatic mode...')
+            amplicon = True
         elif (args.read_wise and args.loci_wise):
             print('Error: Choose either Read-wise or Loci-wise genotyping mode!!')
             sys.exit()

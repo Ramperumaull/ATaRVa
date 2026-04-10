@@ -4,7 +4,10 @@ from ATARVA.sub_operation_utils import *
 from ATARVA.somatic_utils import *
 
 import numpy as np
-from sklearn.cluster import KMeans
+from sklearn.neighbors import KernelDensity
+from scipy.signal import find_peaks
+from scipy.signal import peak_prominences
+from scipy.signal import peak_widths
 import warnings
 from threadpoolctl import threadpool_limits
    
@@ -55,17 +58,66 @@ def hetero_vcf_call(haplotypes, read_seqs, amplicon, motif_size, new_alen, conti
         vcf_heterozygous_writer(contig, genotypes, locus_start, locus_end, allele_count, len(read_indices), global_loci_info, ref, out, chosen_snpQ, phased_read, snp_num, ALT_seqs, log_bool, 'kmeans', decomp, hallele_counter, allele_range, decomp_seq_list, meth_info)
     elif any(repeativity_list):
         if repeativity_list[0]:
-            allele_range = f'{lower1}-{upper1},{lower1}-{upper1}'
-            vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, genotypes[0], len(haplotypes[0]), len(read_indices), out, ALT_seqs[0], log_bool, 'kmeans', decomp, hallele_counter, False, allele_range, decomp_seq_list[0], meth_info[0])
+            no_intracluster = True # will be always true in WGS default mode, to run the homozygous part of the code. This is avoid extra if,else conditon if dbscan fails inside amplicon
+            if amplicon:
+                db_status, new_hap, new_alen = dbscan(alen_c1, haplotypes[0])
+                if db_status:
+                    no_intracluster = False
+                    bool_state, category = hetero_vcf_call(new_hap, read_seqs, amplicon, motif_size, new_alen, contig, locus_key, read_indices, global_loci_info, global_loci_variations, locus_start, locus_end, ref, out, log_bool, decomp, hallele_counter)
+                    return [bool_state, category]
+            if no_intracluster: # if amplicon is true but there are no intraclusters, then give it as homozygous
+                allele_range = f'{lower1}-{upper1},{lower1}-{upper1}'
+                vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, genotypes[0], len(haplotypes[0]), len(read_indices), out, ALT_seqs[0], log_bool, 'kmeans', decomp, hallele_counter, False, allele_range, decomp_seq_list[0], meth_info[0])
         else:
-            allele_range = f'{lower2}-{upper2},{lower2}-{upper2}'
-            vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, genotypes[1], len(haplotypes[1]), len(read_indices), out, ALT_seqs[1], log_bool, 'kmeans', decomp, hallele_counter, False, allele_range, decomp_seq_list[1], meth_info[1])
+            no_intracluster = True # will be always true in WGS default mode, to run the homozygous part of the code
+            if amplicon:
+                db_status, new_hap, new_alen = dbscan(alen_c2, haplotypes[1])
+                if db_status:
+                    no_intracluster = False
+                    bool_state, category = hetero_vcf_call(new_hap, read_seqs, amplicon, motif_size, new_alen, contig, locus_key, read_indices, global_loci_info, global_loci_variations, locus_start, locus_end, ref, out, log_bool, decomp, hallele_counter)
+                    return [bool_state, category]
+            if no_intracluster: # if amplicon is true but there are no intraclusters, then give it as homozygous
+                allele_range = f'{lower2}-{upper2},{lower2}-{upper2}'
+                vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, genotypes[1], len(haplotypes[1]), len(read_indices), out, ALT_seqs[1], log_bool, 'kmeans', decomp, hallele_counter, False, allele_range, decomp_seq_list[1], meth_info[1])
     else:
         return [False, 6]
     
     return [True, 10]
 
-    
+
+def score_calc(x_grid, density, initial_peaks, valleys, top_contour_widths):
+    peak_density = density[initial_peaks]
+    valley_density = density[valleys]
+    initial_score = []
+    for idx in range(len(peak_density)):
+        if idx == 0:
+            f_dense = density[0]
+            base_left = x_grid[0][0]
+        if idx < len(peak_density)-1:
+            valley_dense = valley_density[idx]
+            base_right = x_grid[valleys[idx]][0]
+        else:
+            valley_dense = density[-1]
+            base_right = x_grid[-1][0]
+        # diffs = abs(f_dense - valley_dense)
+        max_point = max(f_dense, valley_dense)
+        prominence = (peak_density[idx] - max_point)# - diffs
+        f_dense = valley_dense
+
+        flattened_x_grid = x_grid[:, 0]
+        mask = (flattened_x_grid >= base_left) & (flattened_x_grid <= base_right)
+        x_vals = flattened_x_grid[mask]
+        y_vals = density[mask]
+
+        # area = 0.5 * float(base_right - base_left) * float(prominence)
+        area = np.trapz(y_vals, x_vals)
+        sharpness = prominence / top_contour_widths[idx]
+        initial_score.append(area * sharpness)
+        base_left = base_right
+        
+    return np.array(initial_score)
+
+
 def length_genotyper(hallele_counter, global_loci_info, global_loci_variations, locus_key, read_indices, contig, locus_start, locus_end, ref, out, male, log_bool, decomp, read_seqs, amplicon):
 
     read_indices = sorted(read_indices)
@@ -96,19 +148,185 @@ def length_genotyper(hallele_counter, global_loci_info, global_loci_variations, 
     if len(alen_data) < 3:
         return [False, 6]
 
-    data = np.array(alen_data)
-    data = data.reshape(-1, 1)
-    with threadpool_limits(limits=1):
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", category=UserWarning)
-            kmeans = KMeans(n_clusters=2, init='k-means++', n_init=5, random_state=0).fit(data)
-    cluster_labels = kmeans.labels_  
-    c1 = [i for i, x in enumerate(cluster_labels) if x == 0]
-    c2 = [i for i, x in enumerate(cluster_labels) if x == 1]
+    # data = np.array([length//motif_size for length in alen_data])
+    # data = data.reshape(-1, 1)
+
+    if amplicon:
+        data = np.array([length//motif_size for length in alen_data])
+        data = data.reshape(-1, 1)
+        # #### KDE with mode peaks and valley for definitive split point for each peak
+        # bandwidth = 10; tot_data_points = 1000 # for amplicon, to get better density estimation and peaks
+        # # Fit kde to the data
+        # kde = KernelDensity(kernel='gaussian', algorithm='kd_tree', metric='minkowski', bandwidth=bandwidth).fit(data)
+        # # Evaluate the density on a grid
+        # x_grid = np.linspace(data.min()-10, data.max()+10, tot_data_points).reshape(-1, 1)
+        # log_density = kde.score_samples(x_grid)
+        # density = np.exp(log_density)
+        # # Getting the peaks & valleys
+        # # Analysing the distribution
+        # peaks, _ = find_peaks(density)
+        # initial_peak_heights = density[peaks]
+        # prominence = np.percentile(initial_peak_heights, 30)
+
+        # initial_widths = peak_widths(density, peaks)
+        # width = np.percentile(initial_widths[0], [10,90])
+
+        # valleys, _ = find_peaks(-density)
+        # dist = int(np.median(np.diff(valleys))) if len(valleys) > 1 else 1
+
+        # # Getting the peaks & valleys
+        # peaks, _ = find_peaks(density, distance=dist, prominence=prominence, width=width)
+
+
+        # #### KDE with mode peaks and valley for definitive split point for each peak based on the sharpness of the peaks
+        # bandwidth = 10; tot_data_points = 1000 # for amplicon, to get better density estimation and peaks
+        # # Fit kde to the data
+        # kde = KernelDensity(kernel='gaussian', algorithm='kd_tree', metric='minkowski', bandwidth=bandwidth).fit(data)
+        # # Evaluate the density on a grid
+        # x_grid = np.linspace(data.min()-10, data.max()+10, tot_data_points).reshape(-1, 1)
+        # log_density = kde.score_samples(x_grid)
+        # density = np.exp(log_density)
+
+        # # Analysing the distribution to identify the sharp narrow peaks
+        # peaks, _ = find_peaks(density)
+        # original_widths = peak_widths(density, peaks)
+        # top_contour_widths = peak_widths(density, peaks, rel_height=0.2) # taking the width at 20% of the prominence to identify the sharp peaks, as the peaks with narrow width at lower height will be sharper
+        # initial_prominences, _, _ = peak_prominences(density, peaks) # calculating the prominence of the peaks to identify the sharp peaks, as the peaks with higher prominence will be sharper
+        # sharpness = initial_prominences / top_contour_widths[0]
+        # narrow_peaks_idx = list(np.argsort(sharpness)[-2:]) # taking top two sharp peaks' indices
+        # width = sorted(original_widths[0][narrow_peaks_idx])
+
+        # # Getting new peaks with analysed data
+        # peaks, _ = find_peaks(density, width = width)
+        # valleys, _ = find_peaks(-density)
+
+
+        #### KDE with mode peaks and valley for definitive split point for each peak based on the area under the peaks
+        bandwidth = 10; tot_data_points = 1000 # for amplicon, to get better density estimation and peaks
+        # Fit kde to the data
+        kde = KernelDensity(kernel='gaussian', algorithm='kd_tree', metric='minkowski', bandwidth=bandwidth).fit(data)
+        # Evaluate the density on a grid
+        x_grid = np.linspace(data.min()-10, data.max()+10, tot_data_points).reshape(-1, 1)
+        log_density = kde.score_samples(x_grid)
+        density = np.exp(log_density)
+
+        # Analysing the distribution to identify the sharp narrow peaks
+        initial_peaks, _ = find_peaks(density)
+        original_widths = peak_widths(density, initial_peaks)
+        top_contour_widths = peak_widths(density, initial_peaks, rel_height=0.2)
+        valleys, _ = find_peaks(-density)
+
+        score = score_calc(x_grid, density, initial_peaks, valleys, top_contour_widths[0])
+        narrow_peaks_idx = list(np.argsort(score)[-2:]) # taking top two peaks with more area under the curve, as the peaks with higher area will be sharper and more prominent
+        width = sorted(original_widths[0][narrow_peaks_idx])
+
+        # Getting new peaks with analysed data
+        peaks, _ = find_peaks(density, width = width)
+
+        # Choose split 
+        peak_heights = density[peaks] # extracting only the peaks frim density
+        top_peaks = peaks[np.argsort(peak_heights)[-2:]] # taking top two peaks
+        sorted_peaks = sorted(top_peaks)
+
+        # flattening the data and initializing the labels for each data point as -1 (unassigned)
+        data = data.flatten()
+        labels = np.full(len(data), -1)
+
+        left = sorted_peaks[0]
+        # boundaries of left peak
+        peak1_left = valleys[(valleys < left)]
+        p1_start = peak1_left[-1] if peak1_left.size > 0 else 0
+        peak1_right = valleys[(valleys > left)]
+        p1_end = peak1_right[0] if peak1_right.size > 0 else len(x_grid) - 1
+
+        p1_left_split = x_grid[p1_start][0]
+        p1_right_split = x_grid[p1_end][0]
+
+        labels[(data >= p1_left_split) & (data <= p1_right_split)] = 0
+
+        if len(sorted_peaks) > 1:
+            right = sorted_peaks[1]
+            # boundaries of right peak
+            peak2_left = valleys[(valleys < right)]
+            p2_start = peak2_left[-1] if peak2_left.size > 0 else 0
+            peak2_right = valleys[(valleys > right)]
+            p2_end = peak2_right[0] if peak2_right.size > 0 else len(x_grid) - 1
+
+            p2_left_split = x_grid[p2_start][0]
+            p2_right_split = x_grid[p2_end][0]
+
+            labels[(data >= p2_left_split) & (data <= p2_right_split)] = 1
+
+    else:
+        data = np.array(alen_data)
+        data = data.reshape(-1, 1)
+        # #### KDE with mode peaks and valley for single split point
+        # bandwidth = 1; tot_data_points = 100
+        # if motif_size == 1:
+        #     bandwidth = 0.1
+        # # Fit kde to the data
+        # kde = KernelDensity(kernel='gaussian', algorithm='kd_tree', metric='minkowski', bandwidth=bandwidth).fit(data)
+        # # Evaluate the density on a grid
+        # x_grid = np.linspace(data.min()-10, data.max()+10, tot_data_points).reshape(-1, 1)
+        # log_density = kde.score_samples(x_grid)
+        # density = np.exp(log_density)
+        # # Getting the peaks & valleys
+        # peaks, _ = find_peaks(density)
+        # valleys, _ = find_peaks(-density)
+        # # Getting the split point for clustering
+        # peak_heights = density[peaks] # extracting only the peaks frim density
+        # top_peaks = peaks[np.argsort(peak_heights)[-2:]] # taking top two peaks
+
+        # if len(top_peaks) == 2:
+        #     left, right = sorted(top_peaks)
+        #     valid_valleys = valleys[(valleys > left) & (valleys < right)] # extracting the middle split point based on the valley between top two peaks
+
+        #     split = x_grid[valid_valleys][0][0]
+        # else:
+        #     split = x_grid[-1][0] # Homozygous cluster; taking the max value as split point to assign all data points to one cluster
+
+        # labels = np.where(data <= split, 0, 1)
+
+
+        #### KDE with mode peaks and valley for single split point ---------------------- New trial experiment with distance parameter
+        bandwidth = 0.1; tot_data_points = 100
+        if motif_size == 1:
+            bandwidth = 0.1
+        # Fit kde to the data
+        kde = KernelDensity(kernel='gaussian', algorithm='kd_tree', metric='minkowski', bandwidth=bandwidth).fit(data)
+        # Evaluate the density on a grid
+        x_grid = np.linspace(data.min()-10, data.max()+10, tot_data_points).reshape(-1, 1)
+        log_density = kde.score_samples(x_grid)
+        density = np.exp(log_density)
+
+        # Analysing the distribution
+        valleys, _ = find_peaks(-density)
+        dist = int(np.median(np.diff(valleys))) if len(valleys) > 1 else 1
+
+        # Getting the peaks & valleys
+        peaks, _ = find_peaks(density, distance=dist)
+
+        # Getting the split point for clustering
+        peak_heights = density[peaks] # extracting only the peaks frim density
+        top_peaks = peaks[np.argsort(peak_heights)[-2:]] # taking top two peaks
+
+        if len(top_peaks) == 2:
+            left, right = sorted(top_peaks)
+            valid_valleys = valleys[(valleys > left) & (valleys < right)] # extracting the middle split point based on the valley between top two peaks
+
+            # split = x_grid[valid_valleys][0][0] # removed --------------- new testing
+            split = np.median(x_grid[valid_valleys]) # taking the median of the valley points as split point to avoid outlier effect
+
+        else:
+            split = x_grid[-1][0] # Homozygous cluster; taking the max value as split point to assign all data points to one cluster
+
+        labels = np.where(data <= split, 0, 1)
+
+    c1 = [i for i, x in enumerate(labels) if x == 0]
+    c2 = [i for i, x in enumerate(labels) if x == 1]
 
     alen_c1 = [alen_data[i] for i in c1]
     alen_c2 = [alen_data[i] for i in c2]
-
 
     haplotypes = ([main_read_id[idx] for idx in c1], [main_read_id[idx] for idx in c2])
     cutoff = 0.15*len(alen_data) # 15%
@@ -117,10 +335,11 @@ def length_genotyper(hallele_counter, global_loci_info, global_loci_variations, 
     if c1 and c2:
         def process_conditions(alen_x, alen_y):
             nonlocal br, cutoff
-            max_val = max(alen_y)
-            slide = max(max_val*0.1, 10)
-            min_bound = min(alen_y)-slide
-            max_bound = max_val+slide
+            min_val, max_val = confidence_interval(alen_y)
+            min_slide = 10 if min_val*0.1 > 10 else min_val*0.1  # max(min_val*0.1, 10)#; maximum length slide is 10
+            max_slide = 10 if max_val*0.1 > 10 else max_val*0.1  # max(max_val*0.1, 10)#; maximum length slide is 10
+            min_bound = min_val-min_slide
+            max_bound = max_val+max_slide
 
             for min_al in alen_x:
                 if min_bound <= min_al <= max_bound:
@@ -131,7 +350,7 @@ def length_genotyper(hallele_counter, global_loci_info, global_loci_variations, 
                 cutoff = int(max(0.03, len(alen_x) / len(alen_data)) * len(alen_data)) # min 3 % of total reads should be in the cluster
                 cutoff = max(2, cutoff) # min 2 reads should be there in cluster if WGS
                 if amplicon:
-                    cutoff = min(5, cutoff) # alteast 5 or 3% of reads should be in the cluster if amplicon
+                    cutoff = min(5, cutoff)
 
         if len(c1) < cutoff and len(c2) >= cutoff:
             process_conditions(alen_c1, alen_c2)
@@ -153,13 +372,12 @@ def length_genotyper(hallele_counter, global_loci_info, global_loci_variations, 
                 vcf_homozygous_writer(ref, contig, locus_key, global_loci_info, allele_length, len(mac), len(read_indices), out, ALT, log_bool, 'kmeans', decomp, hallele_counter, True, allele_range, decomp_seq, meth_info)
             else:
                 return [False, 6]
-    
+        
     elif (c1!=[] and len(c1)>=cutoff) and (c2!=[] and len(c2)>=cutoff):
 
         bool_state, category = hetero_vcf_call(haplotypes, read_seqs, amplicon, motif_size, [alen_c1, alen_c2], contig, locus_key, read_indices, global_loci_info, global_loci_variations, locus_start, locus_end, ref, out, log_bool, decomp, hallele_counter)
         return [bool_state, category]
-
-
+    
     elif c1!=[] and len(c1)>=cutoff:
         if amplicon:
             db_status, new_hap, new_alen = dbscan(alen_c1, haplotypes[0])
@@ -172,7 +390,7 @@ def length_genotyper(hallele_counter, global_loci_info, global_loci_variations, 
         else:
             bool_state, category = homo_vcf_call(alen_c1, read_seqs, haplotypes[0], len(read_indices), amplicon, motif_size, ref, contig, locus_key, global_loci_info, global_loci_variations, out, log_bool, decomp, hallele_counter)
             return [bool_state, category]
-
+        
     elif c2!=[] and len(c2)>=cutoff:
         if amplicon:
             db_status, new_hap, new_alen = dbscan(alen_c2, haplotypes[1])
@@ -215,7 +433,8 @@ def analyse_genotype(contig, locus_key, global_loci_info,
             vcf_multizygous_writer(contig, genotype_dict, locus_start, locus_end, len(read_indices), global_loci_info, ref, out, log_bool, decomp, hallele_counter)
         return [state, skip_point]
     
-    elif male or amplicon: # for haploid and amplicon genotyping
+    # elif male or amplicon: # for haploid and amplicon genotyping # -------------- commented this to do SNP clustering for both WGS & AMPLICON ------------------
+    elif male: # for haploid genotyping
         state, skip_point = length_genotyper(hallele_counter, global_loci_info, global_loci_variations, locus_key, read_indices, contig, locus_start, locus_end, ref, out, male, log_bool, decomp, read_seqs, amplicon)
         return [state, skip_point]
 
@@ -265,7 +484,7 @@ def analyse_genotype(contig, locus_key, global_loci_info,
     haplotypes, min_snp, skip_point, chosen_snpQ, phased_read, snp_num = haplocluster_reads(snp_allelereads, ordered_snp_on_cov, read_indices, snpC, snpR, phasingR) # SNP ifo and supporting reads for specific locus are given to the phasing function
 
     if haplotypes == (): # if the loci has no significant snps
-        state, skip_point = length_genotyper(hallele_counter, global_loci_info, global_loci_variations, locus_key, read_indices, contig, locus_start, locus_end, ref, out, male, log_bool, decomp, read_seqs, False)
+        state, skip_point = length_genotyper(hallele_counter, global_loci_info, global_loci_variations, locus_key, read_indices, contig, locus_start, locus_end, ref, out, male, log_bool, decomp, read_seqs, amplicon)
         del read_seqs
         return [state, skip_point]
     

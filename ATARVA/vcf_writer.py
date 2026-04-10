@@ -329,7 +329,7 @@ def vcf_multizygous_writer(contig, genotype_dict, locus_start, locus_end, DP, gl
 
     GT = '/'.join(GT)
     ALT = ','.join(ALT) if ALT else '.'
-    CN = ','.join([str(i // motif_size) for i in AL])
+    CN = ','.join([str(int(i) // motif_size) for i in AL])
     AL = ','.join(AL)
     AR = ','.join(AR)
     SD = ','.join(SD)
