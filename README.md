@@ -369,6 +369,6 @@ For queries or suggestions, please contact:
 
 Divya Tej Sowpati - tej at csirccmb dot org
 
-Abishek Kumar S - abishekks at csirccmb dot org
+Abishek Kumar S - abishekks at csirccmb dot org 
 
 Akshay Kumar Avvaru - avvaruakshay at gmail dot com
