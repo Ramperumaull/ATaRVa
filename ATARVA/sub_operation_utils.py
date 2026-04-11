@@ -119,8 +119,11 @@ def alt_sequence(read_seqs, hap_reads, amplicon, motif_size):
     if amplicon and allele_length and (motif_size<=10):
         decomp_seq, nonrep_percent = motif_decomposition(ALT, motif_size)
         
-        if nonrep_percent > 0.30: # if more than 30% of the sequence is non-repeat, repeativity = False
+        if (len(ALT) > 50) and (nonrep_percent > 0.30): # if more than 30% of the sequence is non-repeat, repeativity = False
             repeativity = False
+        elif (len(ALT) <= 50) and (nonrep_percent > 0.40):
+            repeativity = False
+
     return [ALT, allele_length, decomp_seq, repeativity]
 
 def pos_diffs(pos_list):

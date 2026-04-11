@@ -1,36 +1,46 @@
 import numpy as np
-from scipy.spatial.distance import pdist
+from scipy.spatial.distance import squareform
+import stringzilla as sz
 from scipy.cluster.hierarchy import linkage, dendrogram
 from ATARVA.sub_operation_utils import *
 
-seq_dict = {'A': [0, 0], 'C': [0, 1], 'G': [1, 0], 'T': [1, 1], 'N': [1, 1]}
+def build_distance_matrix(tot_seqs):
+    N = len(tot_seqs)
+    distance_matrix = []
+    for i in range(N):
+        for j in range(N):
+            if i >= j:
+                continue
+            a = tot_seqs[i]; b = tot_seqs[j]
+            dist = sz.edit_distance(a, b)
+            max_len = max(len(a), len(b))
+            score = dist/max_len
+            distance_matrix.append(score)
+    return np.array(distance_matrix)
 
 def correlation_clustering(read_seqs, read_indices, motif_size, global_loci_variations, locus_key):
 
     seq_list = []
     for read_id in read_indices:
         seq_list.append(read_seqs[read_id][0])
-    # Convert sequence to bit representation using NumPy
-    # if variance is zero, paiwise distance will cause error
+
     seq_len = [len(i) for i in seq_list]
-    bit_seqs = [np.concatenate([seq_dict.get(i, [1,1]) for i in seq]) if seq!='' else np.array([1,1]) for seq in seq_list]
-    # the array shouldn't contain same numbers eg [1,1,1,1], it should not have variance of '0' i.e why  'else np.array([1,1])' this is added, if the allele is a full deletion
-    # then padding will -1-1-1-1-1-1 giving 0 variance
+    distance_matrix = build_distance_matrix(seq_list)
+    linkage_matrix = linkage(distance_matrix, method='complete')
 
-    max_seq_len = max(len(seq) for seq in bit_seqs) + 4
-    # if the lengthiest sequence is a monomer eg AAAAAAAAAAAAAAAAAAAAAAA, its variance is zero
-    # thats why extra '4' (any number of padding can be added) is added to the max length, so variance wont be zero
+    # # 3rd col of Linkage has the distance values and 85th percentile is calculated to cut the dendrogram to get tight unique clusters
+    # dist_percentile = np.percentile(linkage_matrix[:, 2], 85)
 
-    bit_matrix = np.array([np.pad(seq, (0, max_seq_len-len(seq)), constant_values = -1) for seq in bit_seqs], dtype=np.int8)
-    dist_matrix = pdist(bit_matrix, metric='correlation') # correlation formula is used for distance calculation
-    linkage_matrix = linkage(dist_matrix, method='complete') # complete method is used to get compact clusters
-
-    # 3rd col of Linkage has the distance values and 90th percentile is calculated to cut the dendrogram to get tight unique clusters
-    dist_percentile = np.percentile(linkage_matrix[:, 2], 90)
+    # Finiding the largest jump in the merge distance
+    linkage_dist = np.sort(linkage_matrix[:,2]) # sorting the distances
+    jumps = np.diff(linkage_dist) # calculating the difference between consecutive distances
+    jump_index = np.argmax(jumps) # finding the max jump index
+    if jump_index < len(linkage_dist)-1: # ensuring that the jump index is within bounds
+        jump_index += 1 # moving to the next index to get the distance after the jump, which will be the cutoff for clustering
+    cutoff = linkage_dist[jump_index]
 
     # Generating dendrogram details without plotting
-    den_detail = dendrogram(linkage_matrix, count_sort='descending', color_threshold=dist_percentile, no_plot=True)
-
+    den_detail = dendrogram(linkage_matrix, count_sort='descending', color_threshold=cutoff, no_plot=True)
     # Grouping reads based on cluster colors
     color = den_detail['leaves_color_list']
     leaves = den_detail['leaves']
@@ -78,5 +88,5 @@ def correlation_clustering(read_seqs, read_indices, motif_size, global_loci_vari
         else:
             genotype_dict[str(allele_length)] = (ALT, ci, decomp_seq, len(hap_reads), meth_info)
 
-    del read_seqs, alt_seqs, alt_seq_lens, haplotypes, cluster_dict, bit_matrix, dist_matrix, linkage_matrix, den_detail
+    del read_seqs, alt_seqs, alt_seq_lens, haplotypes, cluster_dict, distance_matrix, linkage_matrix, den_detail
     return [True, 10, genotype_dict]
