@@ -33,20 +33,26 @@ def correlation_clustering(read_seqs, read_indices, motif_size, global_loci_vari
 
     # Finiding the largest jump in the merge distance
     linkage_dist = np.sort(linkage_matrix[:,2]) # sorting the distances
-    # jumps = np.diff(linkage_dist) # calculating the difference between consecutive distances
-    # jump_index = np.argmax(jumps) # finding the max jump index
-    # if jump_index < len(linkage_dist)-1: # ensuring that the jump index is within bounds
-    #     jump_index += 1 # moving to the next index to get the distance after the jump, which will be the cutoff for clustering
-    # cutoff = linkage_dist[jump_index]
-    # # Generating dendrogram details without plotting
-    # den_detail = dendrogram(linkage_matrix, count_sort='descending', color_threshold=cutoff, no_plot=True)
+    jumps = np.diff(linkage_dist) # calculating the difference between consecutive distances
+    jump_index = np.argmax(jumps) # finding the max jump index
+    if jump_index < len(linkage_dist)-1: # ensuring that the jump index is within bounds
+        jump_index += 1 # moving to the next index to get the distance after the jump, which will be the cutoff for clustering
+    huge_jump = round(linkage_dist[jump_index], 2) # getting the bigger jump value
 
-    rounded_dist = np.round(linkage_dist, 1)
-    unique_dist = np.unique(rounded_dist)
-    cutoff = np.median(unique_dist)
+    # rounding the distances for similar sequence to 0.1
+    lower_idx = np.where(linkage_dist<=0.1)
+    linkage_dist[lower_idx] = 0.1
+    # rounding the distances for diverse sequence to the huge_jump value
+    upper_idx = np.where(linkage_dist>=huge_jump)
+    linkage_dist[upper_idx] = huge_jump
+
+    rounded_dist = np.round(linkage_dist, 2) # rounding the distances to 2 decimal places for better clustering
+    unique_dist = np.unique(rounded_dist) # getting the unique distance values for better clustering
+    cutoff = np.percentile(unique_dist, 70) # getting the 70th percentile of the unique distance values
 
     # Generating dendrogram details without plotting
     den_detail = dendrogram(linkage_matrix, count_sort='descending', color_threshold=cutoff, no_plot=True)
+
     # Grouping reads based on cluster colors
     color = den_detail['leaves_color_list']
     leaves = den_detail['leaves']
