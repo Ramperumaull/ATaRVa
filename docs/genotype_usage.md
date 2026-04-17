@@ -48,6 +48,11 @@ Optional arguments:
   -log, --debug_mode    write the debug messages to log file. [default: False]
   -v, --version         show program's version number and exit
 ```
+<div align=center>
+  <img src="../lib/workflow.png" alt="Command-driven workflow" width="700"/>
+  <p><i>Workflow of Commands </i></p>
+</div>
+
 The details of each option are given below:
 
 #### `--format`
@@ -124,9 +129,18 @@ Number of threads to use for the process.
 **Expects**: *STRING*<br>
 **Default**: *None*<br>
 Specify the haplotype tag to utilize phased information for genotyping. eg `HP`
+<div align=center>
+  <img src="../lib/haplotag.png" alt="HP clustering" width="500"/>
+  <p><i>Haplotag based clustering of reads</i></p>
+</div>
 
 #### `--decompose`
-Performs motif-decomposition on ALT sequences.<br>
+Performs motif-decomposition on ALT sequences.
+<div align=center>
+  <img src="../lib/MD.png" alt="Motif decomposition" width="500"/>
+  <p><i>Overview of TR motif decomposition </i></p>
+</div>
+<br>
 **NOTE: Only applicable for motif length <= 10**
 
 #### `--methviz`
