@@ -99,7 +99,7 @@ def locus_processor(global_loci_keys, global_loci_ends, global_loci_variations, 
                 else:
                     allele_count[str(allele_length)] = len(hap_reads)
 
-                meth_info.append(methylation_calc(hap_reads, global_loci_variations, locus_key))
+                meth_info.append(methylation_calc(hap_reads, global_loci_variations, locus_key, ALT))
 
             lower1,upper1 = confidence_interval(alen_list[0])
             lower2,upper2 = confidence_interval(alen_list[1])
