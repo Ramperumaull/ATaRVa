@@ -14,7 +14,7 @@ def build_distance_matrix(tot_seqs):
             a = tot_seqs[i]; b = tot_seqs[j]
             dist = sz.edit_distance(a, b)
             max_len = max(len(a), len(b))
-            score = dist/max_len
+            score = dist/max_len if max_len > 0 else 0
             distance_matrix.append(score)
     return np.array(distance_matrix)
 
@@ -37,6 +37,18 @@ def correlation_clustering(read_seqs, read_indices, motif_size, global_loci_vari
     jump_index = np.argmax(jumps) # finding the max jump index
     if jump_index < len(linkage_dist)-1: # ensuring that the jump index is within bounds
         jump_index += 1 # moving to the next index to get the distance after the jump, which will be the cutoff for clustering
+    huge_jump = round(linkage_dist[jump_index], 2) # getting the bigger jump value
+
+    # rounding the distances for similar sequence to 0.1
+    lower_idx = np.where(linkage_dist<=0.1)
+    linkage_dist[lower_idx] = 0.1
+    # rounding the distances for diverse sequence to the huge_jump value
+    upper_idx = np.where(linkage_dist>=huge_jump)
+    linkage_dist[upper_idx] = huge_jump
+
+    rounded_dist = np.round(linkage_dist, 2) # rounding the distances to 2 decimal places for better clustering
+    unique_dist = np.unique(rounded_dist) # getting the unique distance values for better clustering
+    cutoff = np.percentile(unique_dist, 70) # getting the 70th percentile of the unique distance values
     huge_jump = round(linkage_dist[jump_index], 2) # getting the bigger jump value
 
     # rounding the distances for similar sequence to 0.1

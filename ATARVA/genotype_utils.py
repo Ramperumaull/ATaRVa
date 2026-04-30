@@ -6,10 +6,8 @@ from ATARVA.somatic_utils import *
 import numpy as np
 from sklearn.neighbors import KernelDensity
 from scipy.signal import find_peaks
-from scipy.signal import peak_prominences
 from scipy.signal import peak_widths
-import warnings
-from threadpoolctl import threadpool_limits
+import stringzilla as sz
    
 def homo_vcf_call(alen, read_seqs, haplotypes, DP, amplicon, motif_size, ref, contig, locus_key, global_loci_info, global_loci_variations, out, log_bool, decomp, hallele_counter):
 
@@ -148,58 +146,9 @@ def length_genotyper(hallele_counter, global_loci_info, global_loci_variations, 
     if len(alen_data) < 3:
         return [False, 6]
 
-    # data = np.array([length//motif_size for length in alen_data])
-    # data = data.reshape(-1, 1)
-
     if amplicon:
         data = np.array([length//motif_size for length in alen_data])
         data = data.reshape(-1, 1)
-        # #### KDE with mode peaks and valley for definitive split point for each peak
-        # bandwidth = 10; tot_data_points = 1000 # for amplicon, to get better density estimation and peaks
-        # # Fit kde to the data
-        # kde = KernelDensity(kernel='gaussian', algorithm='kd_tree', metric='minkowski', bandwidth=bandwidth).fit(data)
-        # # Evaluate the density on a grid
-        # x_grid = np.linspace(data.min()-10, data.max()+10, tot_data_points).reshape(-1, 1)
-        # log_density = kde.score_samples(x_grid)
-        # density = np.exp(log_density)
-        # # Getting the peaks & valleys
-        # # Analysing the distribution
-        # peaks, _ = find_peaks(density)
-        # initial_peak_heights = density[peaks]
-        # prominence = np.percentile(initial_peak_heights, 30)
-
-        # initial_widths = peak_widths(density, peaks)
-        # width = np.percentile(initial_widths[0], [10,90])
-
-        # valleys, _ = find_peaks(-density)
-        # dist = int(np.median(np.diff(valleys))) if len(valleys) > 1 else 1
-
-        # # Getting the peaks & valleys
-        # peaks, _ = find_peaks(density, distance=dist, prominence=prominence, width=width)
-
-
-        # #### KDE with mode peaks and valley for definitive split point for each peak based on the sharpness of the peaks
-        # bandwidth = 10; tot_data_points = 1000 # for amplicon, to get better density estimation and peaks
-        # # Fit kde to the data
-        # kde = KernelDensity(kernel='gaussian', algorithm='kd_tree', metric='minkowski', bandwidth=bandwidth).fit(data)
-        # # Evaluate the density on a grid
-        # x_grid = np.linspace(data.min()-10, data.max()+10, tot_data_points).reshape(-1, 1)
-        # log_density = kde.score_samples(x_grid)
-        # density = np.exp(log_density)
-
-        # # Analysing the distribution to identify the sharp narrow peaks
-        # peaks, _ = find_peaks(density)
-        # original_widths = peak_widths(density, peaks)
-        # top_contour_widths = peak_widths(density, peaks, rel_height=0.2) # taking the width at 20% of the prominence to identify the sharp peaks, as the peaks with narrow width at lower height will be sharper
-        # initial_prominences, _, _ = peak_prominences(density, peaks) # calculating the prominence of the peaks to identify the sharp peaks, as the peaks with higher prominence will be sharper
-        # sharpness = initial_prominences / top_contour_widths[0]
-        # narrow_peaks_idx = list(np.argsort(sharpness)[-2:]) # taking top two sharp peaks' indices
-        # width = sorted(original_widths[0][narrow_peaks_idx])
-
-        # # Getting new peaks with analysed data
-        # peaks, _ = find_peaks(density, width = width)
-        # valleys, _ = find_peaks(-density)
-
 
         #### KDE with mode peaks and valley for definitive split point for each peak based on the area under the peaks
         bandwidth = 10; tot_data_points = 1000 # for amplicon, to get better density estimation and peaks
@@ -260,67 +209,22 @@ def length_genotyper(hallele_counter, global_loci_info, global_loci_variations, 
     else:
         data = np.array(alen_data)
         data = data.reshape(-1, 1)
-        # #### KDE with mode peaks and valley for single split point
-        # bandwidth = 1; tot_data_points = 100
-        # if motif_size == 1:
-        #     bandwidth = 0.1
-        # # Fit kde to the data
-        # kde = KernelDensity(kernel='gaussian', algorithm='kd_tree', metric='minkowski', bandwidth=bandwidth).fit(data)
-        # # Evaluate the density on a grid
-        # x_grid = np.linspace(data.min()-10, data.max()+10, tot_data_points).reshape(-1, 1)
-        # log_density = kde.score_samples(x_grid)
-        # density = np.exp(log_density)
-        # # Getting the peaks & valleys
-        # peaks, _ = find_peaks(density)
-        # valleys, _ = find_peaks(-density)
-        # # Getting the split point for clustering
-        # peak_heights = density[peaks] # extracting only the peaks frim density
-        # top_peaks = peaks[np.argsort(peak_heights)[-2:]] # taking top two peaks
 
-        # if len(top_peaks) == 2:
-        #     left, right = sorted(top_peaks)
-        #     valid_valleys = valleys[(valleys > left) & (valleys < right)] # extracting the middle split point based on the valley between top two peaks
+        ref_seq = ref.fetch(contig, locus_start, locus_end)
+        edit_list = []
+        for read_id in main_read_id:
+            current_seq = read_seqs[read_id][0]
+            current_seq_len = len(current_seq)
+            # current_seq_len = np.inf if current_seq_len == 0 else current_seq_len
+            # edit_list.append( round( sz.edit_distance(ref_seq, current_seq)  /  current_seq_len, 3 ) )
 
-        #     split = x_grid[valid_valleys][0][0]
-        # else:
-        #     split = x_grid[-1][0] # Homozygous cluster; taking the max value as split point to assign all data points to one cluster
+            edit_list.append( [sz.edit_distance(ref_seq, current_seq),  current_seq_len] ) 
 
-        # labels = np.where(data <= split, 0, 1)
+        del current_seq
+        db_status, labels, _ = dbscan(edit_list, None, 0.1)
 
-
-        #### KDE with mode peaks and valley for single split point ---------------------- New trial experiment with distance parameter
-        bandwidth = 0.1; tot_data_points = 100
-        if motif_size == 1:
-            bandwidth = 0.1
-        # Fit kde to the data
-        kde = KernelDensity(kernel='gaussian', algorithm='kd_tree', metric='minkowski', bandwidth=bandwidth).fit(data)
-        # Evaluate the density on a grid
-        x_grid = np.linspace(data.min()-10, data.max()+10, tot_data_points).reshape(-1, 1)
-        log_density = kde.score_samples(x_grid)
-        density = np.exp(log_density)
-
-        # Analysing the distribution
-        valleys, _ = find_peaks(-density)
-        dist = int(np.median(np.diff(valleys))) if len(valleys) > 1 else 1
-
-        # Getting the peaks & valleys
-        peaks, _ = find_peaks(density, distance=dist)
-
-        # Getting the split point for clustering
-        peak_heights = density[peaks] # extracting only the peaks frim density
-        top_peaks = peaks[np.argsort(peak_heights)[-2:]] # taking top two peaks
-
-        if len(top_peaks) == 2:
-            left, right = sorted(top_peaks)
-            valid_valleys = valleys[(valleys > left) & (valleys < right)] # extracting the middle split point based on the valley between top two peaks
-
-            # split = x_grid[valid_valleys][0][0] # removed --------------- new testing
-            split = np.median(x_grid[valid_valleys]) # taking the median of the valley points as split point to avoid outlier effect
-
-        else:
-            split = x_grid[-1][0] # Homozygous cluster; taking the max value as split point to assign all data points to one cluster
-
-        labels = np.where(data <= split, 0, 1)
+        if not db_status: # if dbscan fails, assign it as homozygous
+            labels = [0]*len(main_read_id)
 
     c1 = [i for i, x in enumerate(labels) if x == 0]
     c2 = [i for i, x in enumerate(labels) if x == 1]
@@ -357,6 +261,8 @@ def length_genotyper(hallele_counter, global_loci_info, global_loci_variations, 
                                
         elif len(c2) < cutoff and len(c1) >= cutoff:
             process_conditions(alen_c2, alen_c1)
+
+    cutoff = int(cutoff)
 
     if male:
         cluster_len = [len(c1), len(c2)]
@@ -419,11 +325,6 @@ def analyse_genotype(contig, locus_key, global_loci_info,
     motif_size = int(float(global_loci_info[locus_key][4]))
 
     state = False
-
-    # if max_limit == 0:
-    #     read_indices = global_loci_variations[locus_key]['reads']
-    # else:
-    #     read_indices = global_loci_variations[locus_key]['reads'][:maxR]
 
     read_seqs = global_loci_variations[locus_key]['read_sequence']
 

@@ -1,5 +1,5 @@
 # ATaRVa - a tandem repeat genotyper
-![Badge-PyPI](https://img.shields.io/badge/PyPI-v0.6.0-brightgreen)
+![Badge-PyPI](https://img.shields.io/badge/PyPI-v0.7.0-brightgreen)
 ![Badge-License](https://img.shields.io/badge/License-MIT-blue)
 
 <p align=center>
@@ -303,6 +303,10 @@ Optional arguments:
 For detailed information on advanced merging options, refer to the [Tamatr](./docs/merge_usage.md) documentation.
 
 ## Changelog
+### v0.7.0
+* Replaced K-means clustering in `--amplicon` mode and non-SNP regions with KDE-based clustering and edit-distance–based HDBSCAN.
+* Forced all loci into `ambiguous` mode to ensure clustering is performed, even when most reads support a single allele.
+
 ### v0.6.0
 * Fixed an incorrect code modification that caused `--amplicon` mode to produce incorrect results in previous version(V0.5.0)
 * Fixed bugs in `loci-wise` mode related to storing SNP info

@@ -242,18 +242,9 @@ def process_locus(locus_key, global_loci_variations, global_read_variations, glo
         if hap_status & ((read_tag.count(None)/total_reads) <= 0.15): # processing haplotagged reads to write into vcf_heterozygous
             category = 3 # phased
         
-        elif len(hallele_counter) == 1:
-            category = 1 # homozygous
-            homozygous_allele = list(hallele_counter.keys())[0]
-        
         else:
-            filtered_alleles = list(filter(lambda x: hallele_counter[x] > 1, hallele_counter.keys()))
-            if len(filtered_alleles) == 1 and hallele_counter[filtered_alleles[0]]/total_reads >= 0.75:
-                category = 1 # homozygous
-                homozygous_allele = filtered_alleles[0]
-                # reads_of_homozygous = [rindex for rindex in global_loci_variations[locus_key]['read_allele'] if homozygous_allele == global_loci_variations[locus_key]['read_allele'][rindex][0]]
-            else:
-                category = 2 # ambiguous
+            category = 2 # ambiguous
+
     else:
         category = 2 # ambiguous
     

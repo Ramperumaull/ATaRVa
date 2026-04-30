@@ -11,7 +11,6 @@ from ATARVA.sub_operation_utils import *
 from tqdm import tqdm
 import pysam
 import numpy as np
-import numpy as np
 import logging
 
 def locus_processor(global_loci_keys, global_loci_ends, global_loci_variations, global_read_variations, global_snp_positions, prev_reads, sorted_global_snp_list, maxR, minR, ref, Chrom, global_loci_info, out, snpQ, snpC, snpD, snpR, phasingR, tbx, flank, sorted_global_ins_rpos_set, log_bool, logger, male, prev_locus_end, decomp, hp_code, amplicon, somatic, meth_cutoff):
