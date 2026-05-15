@@ -86,8 +86,8 @@ def parse_cigar_tag(read_index, cigar_tuples, read_start, loci_keys, loci_coords
             repeat_index += insertion_jump(insert_length, '', rpos, repeat_index, loci_keys,
                                            tracked, loci_coords, homopoly_positions, read_loci_variations, locus_qpos_range, qpos, loci_flank_qpos_range, flank_track, left_flank_list, right_flank_list, out_insertion_qpos_ranges_left, out_insertion_qpos_ranges_right, left_ins_rpos, right_ins_rpos, amp_right_flank_list, amp_left_flank_list, amplicon_variables)
         elif cigar[0] == 0: # match (both equals & difference)
-            # if (not md) & (not male) & (not hp)and (amplicon_variables==[]):
-            if (not md) & (not male) & (not hp): # considering substitutions for amplicon data as well
+            if (not md) & (not male) & (not hp)and (amplicon_variables==[]):
+            # if (not md) & (not male) & (not hp): # considering substitutions for amplicon data as well
                 ref_sequence = ref.fetch(chrom, rpos, rpos+cigar[1])
                 query_sequence = read_sequence[qpos:qpos+cigar[1]]
                 sub_pos = []
@@ -125,8 +125,8 @@ def parse_cigar_tag(read_index, cigar_tuples, read_start, loci_keys, loci_coords
 
         elif cigar[0] == 8: # substitution (difference)
             X_tag = True
-            # if (not male) and outside_locus(same_read_loci, rpos) and (not hp) and (amplicon_variables==[]):
-            if (not male) and outside_locus(same_read_loci, rpos) and (not hp): # considering substitutions for amplicon data as well
+            if (not male) and outside_locus(same_read_loci, rpos) and (not hp) and (amplicon_variables==[]):
+            # if (not male) and outside_locus(same_read_loci, rpos) and (not hp): # considering substitutions for amplicon data as well
                 sub_nuc = read_sequence[qpos]
                 Q_value = read_quality[qpos]
                 if Q_value >= snpQ:

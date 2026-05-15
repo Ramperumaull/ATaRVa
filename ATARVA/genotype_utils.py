@@ -42,10 +42,6 @@ def hetero_vcf_call(haplotypes, read_seqs, amplicon, motif_size, new_alen, conti
         ALT_seqs.append(ALT)
         genotypes.append(allele_length)
         allele_count.append(len(hap_reads))
-        # if allele_length not in allele_count:
-        #     allele_count[allele_length] = len(hap_reads)
-        # else:
-        #     allele_count[str(allele_length)] = len(hap_reads)
 
         meth_info.append(methylation_calc(hap_reads, global_loci_variations, locus_key, ALT))
 
@@ -222,8 +218,6 @@ def length_genotyper(hallele_counter, global_loci_info, global_loci_variations, 
         for read_id in main_read_id:
             current_seq = read_seqs[read_id][0]
             current_seq_len = len(current_seq)
-            # current_seq_len = np.inf if current_seq_len == 0 else current_seq_len
-            # edit_list.append( round( sz.edit_distance(ref_seq, current_seq)  /  current_seq_len, 3 ) )
 
             edit_list.append( [sz.edit_distance(ref_seq, current_seq),  current_seq_len] ) 
 

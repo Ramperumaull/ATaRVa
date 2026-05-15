@@ -15,8 +15,8 @@ def update_global_snpPos(ref_start, pos, global_read_variations, global_snp_posi
             break
     
     Q_value = read_quality[qpos]
-    # if (Q_value >= snpQ) and (not male) and outside_loci and (not hp) and (amplicon_variables==[]):
-    if (Q_value >= snpQ) and (not male) and outside_loci and (not hp): # considering substitutions for amplicon data as well
+    if (Q_value >= snpQ) and (not male) and outside_loci and (not hp) and (amplicon_variables==[]):
+    # if (Q_value >= snpQ) and (not male) and outside_loci and (not hp): # considering substitutions for amplicon data as well
         sub_char = read_sequence[qpos]
         global_read_variations[read_index]['snps'].add(rpos)
         if rpos not in global_snp_positions:

@@ -166,6 +166,7 @@ Optional arguments:
                         purpose. [default: False]
   --amplicon            genotype mode for targeted-sequenced samples.
                         In this mode, the default values for `max-reads` and `flank` values are 1000 and 20 respectively [default: False]
+  --somatic             genotype mode for capturing mosaicism in samples. In this mode, default `max-reads` and `flank` values are same as amplicon mode. [default: False]
   --read-wise           Read-wise genotyping mode for BED file with dense regions. [default: False]
   --loci-wise           Loci-wise genotyping mode instead of Read-wise for BED file with sparse regions. [default: False]
   -log, --debug_mode    write the debug messages to log file. [default: False]
