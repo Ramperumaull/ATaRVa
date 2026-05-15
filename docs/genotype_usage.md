@@ -251,6 +251,7 @@ The `FORMAT` fields and their values are provided in the last two columns of the
 | GT | Genotype of the sample |
 | AL | Length of the alleles in base pairs |
 | CN | Motif copy number for each allele |
+| LPM | Longest pure repeat motif & its copy number for each allele |
 | AR | Central 95% range of allele lengths in each cluster |
 | SD | Number of supporting reads for each alleles |
 | DP | Number of the supporting reads for the repeat locus |
