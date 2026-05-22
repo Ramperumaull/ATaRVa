@@ -135,6 +135,7 @@ def t_check(path):
     """
     try:
         columns = ["Chrom", "Start", "End", "Motif", "Motif length"]
+        incorrect_symbols = {' ', ',', ';', ':', '|', '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '+', '=', '[', ']', '{', '}', '<', '>', '?', '/', '\\'}
         t = pysam.TabixFile(path)
         for rows in t.fetch():
             rows = rows.strip().split('\t')
@@ -149,8 +150,8 @@ def t_check(path):
                 print(f"Error: The first 5 columns of {path} should be chrom, start, end, motif, motif length respectively!!")
                 print(f"Incorrect columns: {', '.join(incorrect_cols)}")
                 sys.exit()
-            elif (len(rows) > 5) and (not rows[5].isalnum()):
-                print(f"Error: The 6th column of {path} should be a alphanumeric string representing the optional annotation!!")
+            elif (len(rows) > 5) and ( len(incorrect_symbols & set(rows[5])) > 0):
+                print(f"Error: The 6th column of {path} should be a alphanumeric string representing the optional annotation!!\n eg: HTT, FMR1")
                 sys.exit()
 
         t.close()
