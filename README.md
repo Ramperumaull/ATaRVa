@@ -63,9 +63,7 @@ $ docker build --network host -t atarva
 * [`merge` usage](/docs/merge_usage.md)
 * [FAQs](/docs/FAQ's.md)
 * [Changelog](/docs/changelog.md)
-* [Analysis script](#analysis-script)
-* [Citation](#citation)
-* [Contact](#contact)
+
 
 
 ## Usage
