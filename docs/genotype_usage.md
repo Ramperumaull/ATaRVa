@@ -196,6 +196,7 @@ Optional arguments:
                         purpose. [default: False]
   --amplicon            genotype mode for targeted-sequenced samples.
                         In this mode, the default values for `max-reads` and `flank` values are 1000 and 20 respectively [default: False]
+  --somatic             genotype mode for capturing mosaicism in samples. In this mode, default `max-reads` and `flank` values are same as amplicon mode. [default: False]
   --read-wise           Read-wise genotyping mode for BED file with dense regions. [default: False]
   --loci-wise           Loci-wise genotyping mode instead of Read-wise for BED file with sparse regions. [default: False]
   -log, --debug_mode    write the debug messages to log file. [default: False]
@@ -303,6 +304,9 @@ Calculates site-level methylation levels for CG bases(5mC) within the repeat reg
 #### `--amplicon`
 Genotyping mode for targeted sequencing data. In this mode, the default values for `max-reads` and `flank` values are 1000 and 20 respectively.
 
+### `--somatic`
+Genotyping mode optimized for mosaic samples, where multiple alleles beyond diploid genotypes may occur. It operates similarly to the `amplicon` mode but incorporates hierarchical clustering based on sequence composition to resolve complex allele mixtures.
+
 #### `--read-wise`
 Classical ATaRVa genotyping mode, where loci are genotyped read-wise, utilizing the length advantage of the long reads to genotype multiple loci simultaneously (default : True)
 
@@ -318,45 +322,45 @@ The following examples assume the input reference genome is in `FASTA` format an
 ### Basic usage
 To run ATaRVa with default parameters, use the following command:
 ```bash
-$ atarva -f ref.fa --bam input.bam -r regions.bed.gz
+$ atarva genotype -f ref.fa --bam input.bam -r regions.bed.gz
 ```
 ### With karyotype
 To run ATaRVa with sex chromosome karyotype, use the following command:
 ```bash
-$ atarva -f ref.fa --bam input.bam -r regions.bed.gz --karyotype XY
+$ atarva genotype -f ref.fa --bam input.bam -r regions.bed.gz --karyotype XY
 ```
 With multiple bams:
 ```bash
-$ atarva -f ref.fa --bam input1.bam input2.bam -r regions.bed.gz --karyotype XY XX
+$ atarva genotype -f ref.fa --bam input1.bam input2.bam -r regions.bed.gz --karyotype XY XX
 ```
 ### With haplotag
 To run ATaRVa on haplotagged alignment file, use the following command:
 ```bash
-$ atarva -f ref.fa --bam input.bam -r regions.bed.gz --haplotag HP
+$ atarva genotype -f ref.fa --bam input.bam -r regions.bed.gz --haplotag HP
 ```
 ### With amplicon
 To run ATaRVa on targeted sequencing file, use the following command:
 ```bash
-$ atarva -f ref.fa --bam input.bam -r regions.bed.gz --amplicon
+$ atarva genotype -f ref.fa --bam input.bam -r regions.bed.gz --amplicon
 ```
 ### Stringent parameter usage
 To run ATaRVa with stringent parameters, use the following command:
 ```bash
-$ atarva -q 30 --snp-count 5 --snp-qual 25 --min-reads 20 -t 32 -fi ref.fa --bam input.bam -r regions.bed.gz
+$ atarva genotype -q 30 --snp-count 5 --snp-qual 25 --min-reads 20 -t 32 -fi ref.fa --bam input.bam -r regions.bed.gz
 # The above command with --snp-count 5 will use a maximum of five heterozygous SNPs to provide accurate genotypes, but only when phasing is based on SNPs and not on length.
 ```
 ### Genotyping TRs from specific chromosome/s
 To genotype TRs from specific chromosomes only, run ATaRVa with the following command:
 ```bash
-$ atarva --contigs chr9 chr15 chr17 chrX -t 32 -f ref.fa --bam input.bam -r regions.bed.gz
+$ atarva genotype --contigs chr9 chr15 chr17 chrX -t 32 -f ref.fa --bam input.bam -r regions.bed.gz
 ```
 ### For input alignment file other than `bam`
 ```bash
 # input cram file
-$ atarva --format cram -f ref.fa --bam input.cram -r regions.bed.gz
+$ atarva genotype --format cram -f ref.fa --bam input.cram -r regions.bed.gz
 
 # input sam file
-$ atarva --format sam -f ref.fa --bam input.sam -r regions.bed.gz
+$ atarva genotype --format sam -f ref.fa --bam input.sam -r regions.bed.gz
 ```
 ### Usage in docker
 To run ATaRVa in docker container, use the following command:
