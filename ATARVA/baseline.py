@@ -130,9 +130,11 @@ def cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshold, ou
         log_name = f'{hid_outfile}_debug_{tidx}.log'
     
     tbx  = pysam.Tabixfile(tbx_file)
-    bam  = pysam.AlignmentFile(bam_file, aln_format)
+    # Pass the reference so pysam can decode CRAM reads; without it htslib falls back to the CRAM header's reference
+    # URL (or the REF_PATH/REF_CACHE), which is unreliable and can silently fail. Ignored for BAM/SAM input.
+    bam  = pysam.AlignmentFile(bam_file, aln_format, reference_filename=ref_file)
     ref  = pysam.FastaFile(ref_file)
-    
+
     # Open the output file
     out = open(out_filename, 'w')
     
@@ -488,7 +490,9 @@ def mini_cooper(bam_file, tbx_file, ref_file, aln_format, contigs, mapq_threshol
     # this function iterates through each contig and processes the genotypes for each locus
     tbx  = pysam.Tabixfile(tbx_file)
     tbx2  = pysam.Tabixfile(tbx_file)
-    bam  = pysam.AlignmentFile(bam_file, aln_format)
+    # Pass the reference so pysam can decode CRAM reads; without it htslib falls back to the CRAM header's reference
+    # URL (or the REF_PATH/REF_CACHE), which is unreliable and can silently fail. Ignored for BAM/SAM input.
+    bam  = pysam.AlignmentFile(bam_file, aln_format, reference_filename=ref_file)
     ref  = pysam.FastaFile(ref_file)
 
 
