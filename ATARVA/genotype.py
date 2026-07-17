@@ -269,7 +269,9 @@ def genotype_run(args):
         print(f"Processing sample {each_bam.split('/')[-1]}\n")
 
         count = 0
-        aln_file = pysam.AlignmentFile(each_bam, aln_format)
+        # Pass the reference so pysam can decode CRAM reads in the tag-detection loop below; without it htslib falls
+        # back to the CRAM header's reference URL (or the REF_PATH/REF_CACHE), which is unreliable. Ignored for BAM/SAM.
+        aln_file = pysam.AlignmentFile(each_bam, aln_format, reference_filename=args.fasta)
         length = 0
         for read in aln_file.fetch():
             if (read.flag & 0X400) or (read.flag & 0X100): continue 
